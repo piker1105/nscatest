@@ -2,16 +2,15 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>模組化訓練系統 | V5 週期化旗艦版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>模組化訓練系統 | V6 行動優化版</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root {
-            --primary: #0f172a;       /* 深藍 */
-            --primary-light: #1e293b; 
-            --accent: #3b82f6;        /* 亮藍 */
-            --bg: #f8fafc;            /* 淺灰背景 */
+            --primary: #0f172a;
+            --primary-light: #1e293b;
+            --accent: #3b82f6;
+            --bg: #f8fafc;
             --white: #ffffff;
             --text-main: #334155;
             --text-light: #64748b;
@@ -19,10 +18,13 @@
             --danger: #ef4444;
             --success: #10b981;
             --warning: #f59e0b;
+            --sidebar-width: 260px;
         }
         
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
         body {
-            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             background-color: var(--bg);
             color: var(--text-main);
             margin: 0;
@@ -32,26 +34,37 @@
             overflow: hidden;
         }
 
-        /* --- Sidebar --- */
+        /* --- 1. 響應式側邊欄 (Sidebar / Drawer) --- */
         aside {
-            width: 260px;
+            width: var(--sidebar-width);
             background: var(--primary);
             color: white;
             display: flex;
             flex-direction: column;
             flex-shrink: 0;
-            transition: 0.3s;
+            height: 100%;
+            position: relative;
+            z-index: 200;
+            transition: transform 0.3s ease;
         }
+
+        /* 手機版遮罩 */
+        .sidebar-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 150;
+            display: none; opacity: 0; transition: opacity 0.3s;
+        }
+
         .brand {
-            padding: 25px 20px;
-            font-size: 1.3em;
+            padding: 20px;
+            font-size: 1.2em;
             font-weight: bold;
             display: flex;
             align-items: center;
-            gap: 10px;
+            justify-content: space-between; /* 手機版要放關閉鈕 */
             border-bottom: 1px solid rgba(255,255,255,0.1);
         }
-        .nav-menu { padding: 20px 15px; flex: 1; }
+        .nav-menu { padding: 15px; flex: 1; overflow-y: auto; }
         .nav-item {
             display: flex; align-items: center; gap: 15px;
             padding: 12px 15px; margin-bottom: 5px;
@@ -59,117 +72,151 @@
             border-radius: 10px; cursor: pointer; transition: 0.2s;
         }
         .nav-item:hover { background: rgba(255,255,255,0.05); color: white; }
-        .nav-item.active { background: var(--accent); color: white; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); }
-        
-        /* Reminder Widget in Sidebar */
+        .nav-item.active { background: var(--accent); color: white; }
+
+        /* Sidebar Widget */
         .sidebar-widget {
-            margin: 20px;
-            padding: 15px;
+            margin: 15px; padding: 15px;
             background: rgba(255,255,255,0.05);
-            border-radius: 12px;
-            font-size: 0.85em;
+            border-radius: 12px; font-size: 0.85em;
         }
-        .widget-title { font-weight: bold; color: #cbd5e1; margin-bottom: 10px; display: flex; justify-content: space-between; }
 
-        /* --- Main Content --- */
-        main { flex: 1; overflow-y: auto; position: relative; display: flex; flex-direction: column; }
-        
+        /* --- 2. 主內容區 --- */
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            width: 100%;
+            overflow: hidden; /* 讓內部捲動 */
+        }
+
+        /* 頂部導覽列 (Header) */
         .top-bar {
-            background: var(--white); padding: 15px 30px;
+            background: var(--white);
+            padding: 15px 20px;
             border-bottom: 1px solid var(--border);
-            display: flex; justify-content: space-between; align-items: center;
-            position: sticky; top: 0; z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 60px;
+            flex-shrink: 0;
+        }
+        .menu-toggle-btn {
+            display: none; /* 電腦版隱藏 */
+            background: none; border: none; cursor: pointer;
+            color: var(--primary); padding: 0; margin-right: 15px;
         }
 
-        .content-wrapper { padding: 30px; max-width: 1400px; margin: 0 auto; width: 100%; box-sizing: border-box; }
-        .page-view { display: none; animation: fadeIn 0.3s ease; }
-        .page-view.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .content-scroll-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            -webkit-overflow-scrolling: touch; /* iOS 滾動優化 */
+        }
 
-        /* --- Components --- */
-        .btn { padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; font-size: 0.9em; transition: 0.2s; }
+        /* RWD Components */
+        .btn { padding: 8px 14px; border-radius: 8px; border: none; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; font-size: 0.9em; white-space: nowrap; }
         .btn-primary { background: var(--primary); color: white; }
-        .btn-accent { background: var(--accent); color: white; }
         .btn-outline { background: white; border: 1px solid #cbd5e1; color: var(--text-main); }
-        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
 
-        /* Page 1: Dashboard Timeline */
+        /* Timeline (Dashboard) */
         .timeline-item {
-            display: flex; gap: 20px; padding: 20px;
-            background: white; border-radius: 12px;
-            margin-bottom: 15px; border-left: 5px solid var(--accent);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05); align-items: center;
+            display: flex; gap: 15px; padding: 15px;
+            background: white; border-radius: 12px; margin-bottom: 15px;
+            border-left: 5px solid var(--accent); box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+            align-items: center;
         }
-        .time-box { font-weight: bold; font-size: 1.2em; color: var(--primary); min-width: 80px; }
+        .time-box { font-weight: bold; font-size: 1.1em; color: var(--primary); min-width: 60px; }
 
-        /* Page 2: Student List */
-        .student-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+        /* Student Grid */
+        .student-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+        }
         .student-card {
-            background: white; border-radius: 12px; padding: 20px;
-            border: 1px solid var(--border); cursor: pointer;
-            transition: 0.2s; position: relative; overflow: hidden;
+            background: white; border-radius: 12px; padding: 15px;
+            border: 1px solid var(--border); position: relative;
         }
-        .student-card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.05); border-color: var(--accent); }
-        .card-header { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; }
-        .avatar { width: 50px; height: 50px; background: #e2e8f0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: var(--text-light); }
-        .status-tag { position: absolute; top: 20px; right: 20px; font-size: 0.8em; padding: 4px 10px; border-radius: 20px; font-weight: bold; }
-        .status-active { background: #dcfce7; color: #166534; }
-        .status-expiring { background: #fee2e2; color: #991b1b; }
 
-        /* Page 3: Student Detail & Calendar */
-        .profile-header { background: white; border-radius: 12px; padding: 25px; margin-bottom: 20px; border: 1px solid var(--border); }
-        .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border); }
+        /* Profile & Metrics */
+        .profile-header { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid var(--border); }
+        .metrics-grid {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;
+            margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border);
+        }
         .metric-box { text-align: center; }
-        .metric-val { font-size: 1.4em; font-weight: bold; color: var(--primary); }
-        .metric-label { font-size: 0.85em; color: var(--text-light); }
+        .metric-val { font-size: 1.3em; font-weight: bold; color: var(--primary); }
+        .metric-label { font-size: 0.8em; color: var(--text-light); }
 
-        /* Calendar System */
-        .periodization-bar {
-            background: var(--primary-light); color: white;
-            padding: 15px 20px; border-radius: 12px 12px 0 0;
-            display: flex; justify-content: space-between; align-items: center;
-        }
-        .calendar-container { background: white; padding: 20px; border-radius: 0 0 12px 12px; border: 1px solid var(--border); }
-        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
-        .cal-header { text-align: center; font-weight: bold; color: var(--text-light); padding: 10px 0; }
+        /* Calendar */
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; background: white; padding: 10px; border-radius: 0 0 12px 12px; border: 1px solid var(--border); }
+        .cal-header { text-align: center; font-size: 0.8em; color: var(--text-light); padding-bottom: 5px; }
         .cal-day {
-            min-height: 100px; border: 1px solid #f1f5f9; border-radius: 8px;
-            padding: 10px; cursor: pointer; transition: 0.2s; position: relative;
+            min-height: 80px; border: 1px solid #f1f5f9; border-radius: 6px;
+            padding: 5px; position: relative; font-size: 0.8em;
         }
-        .cal-day:hover { background: #f8fafc; border-color: var(--accent); }
-        .cal-date { font-weight: bold; color: var(--text-light); margin-bottom: 5px; font-size: 0.9em; }
         .workout-dot {
-            display: block; background: #e0f2fe; color: #0284c7;
-            padding: 4px 8px; border-radius: 4px; font-size: 0.8em;
-            margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            background: #e0f2fe; color: #0284c7; padding: 2px 4px;
+            border-radius: 3px; font-size: 0.75em; margin-top: 2px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;
         }
-        
-        /* Editor (Slide over) */
+
+        /* Slide Editor */
         .editor-panel {
-            position: fixed; top: 0; right: -600px; width: 600px; height: 100%;
-            background: white; box-shadow: -10px 0 30px rgba(0,0,0,0.1);
-            z-index: 100; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            display: flex; flex-direction: column;
+            position: fixed; top: 0; right: -100%; width: 600px; height: 100%;
+            background: white; z-index: 300; transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex; flex-direction: column; box-shadow: -5px 0 25px rgba(0,0,0,0.2);
         }
         .editor-panel.open { right: 0; }
-        .editor-content { padding: 30px; flex: 1; overflow-y: auto; }
-        
-        /* Module Styling in Editor */
-        .module-box { background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid var(--border); }
-        .module-box.main-train { border-left: 4px solid var(--danger); background: #fff5f5; }
 
+        /* --- 📱 Mobile Media Queries (關鍵修正) --- */
+        @media (max-width: 768px) {
+            /* 隱藏 Sidebar */
+            aside {
+                position: fixed; left: 0; top: 0; bottom: 0;
+                transform: translateX(-100%); /* 預設移出畫面 */
+                box-shadow: 5px 0 15px rgba(0,0,0,0.1);
+            }
+            aside.active { transform: translateX(0); } /* 滑入 */
+            
+            .sidebar-overlay.active { display: block; opacity: 1; }
+            .menu-toggle-btn { display: block; } /* 顯示漢堡按鈕 */
+            
+            /* 調整內距 */
+            .content-scroll-area { padding: 15px; }
+            
+            /* Profile 調整 */
+            .profile-top-row { flex-direction: column; gap: 10px; }
+            .profile-top-row > div { text-align: left !important; }
+            
+            /* Metrics 變 2x2 */
+            .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+            
+            /* 日曆縮小字體 */
+            .cal-day { min-height: 60px; font-size: 0.75em; }
+            .workout-dot { font-size: 0.7em; padding: 1px 2px; }
+            
+            /* 編輯器全螢幕 */
+            .editor-panel { width: 100%; }
+        }
     </style>
 </head>
 <body>
 
-    <aside>
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <aside id="sidebar">
         <div class="brand">
-            <span class="material-icons">fitness_center</span>
-            模組化訓練
+            <span style="display:flex; align-items:center; gap:10px;">
+                <span class="material-icons">fitness_center</span> 模組化訓練
+            </span>
+            <span class="material-icons" style="cursor:pointer; opacity:0.7;" onclick="toggleSidebar()">close</span>
         </div>
         
         <div class="sidebar-widget">
-            <div class="widget-title">
+            <div style="font-weight:bold; color:#cbd5e1; margin-bottom:10px; display:flex; justify-content:space-between;">
                 <span>📅 今日提醒</span>
                 <span style="color:var(--accent)">11/21</span>
             </div>
@@ -188,109 +235,94 @@
             <div class="nav-item" onclick="navTo('students', this)">
                 <span class="material-icons">people</span> 學員管理
             </div>
-            <div class="nav-item" onclick="navTo('library', this)">
-                <span class="material-icons">inventory_2</span> 動作資料庫
-            </div>
             <div class="nav-item" onclick="alert('功能開發中')">
-                <span class="material-icons">settings</span> 系統設定
+                <span class="material-icons">inventory_2</span> 動作資料庫
             </div>
         </nav>
     </aside>
 
     <main>
-        
-        <div id="page-dashboard" class="page-view active">
-            <div class="top-bar">
-                <h2>👋 早安，Harrison 教練</h2>
-                <button class="btn btn-primary">+ 快速新增</button>
+        <div class="top-bar">
+            <div style="display:flex; align-items:center;">
+                <button class="menu-toggle-btn" onclick="toggleSidebar()">
+                    <span class="material-icons">menu</span>
+                </button>
+                <h2 style="margin:0; font-size:1.1em;">Dashboard</h2>
             </div>
-            <div class="content-wrapper">
-                <h3 style="margin-bottom:20px;">📅 今日行程 (Today's Schedule)</h3>
+            <button class="btn btn-primary btn-sm">+ 快速新增</button>
+        </div>
+
+        <div class="content-scroll-area">
+            
+            <div id="page-dashboard" class="page-view active" style="display:block;">
+                <h3 style="margin:0 0 15px 0;">今日行程</h3>
                 
                 <div class="timeline-item">
                     <div class="time-box">09:00</div>
                     <div style="flex:1">
-                        <div style="font-weight:bold; font-size:1.1em;">王小明 - 下肢肌力</div>
-                        <div style="color:var(--text-light); font-size:0.9em;">台北大安館 • 第 3 週 (肌肥大週期)</div>
+                        <div style="font-weight:bold;">王小明 - 下肢肌力</div>
+                        <div style="color:var(--text-light); font-size:0.85em;">台北大安館</div>
                     </div>
-                    <button class="btn btn-outline btn-sm">查看</button>
+                    <button class="btn btn-outline">查看</button>
                 </div>
 
                 <div class="timeline-item" style="border-left-color:var(--warning)">
                     <div class="time-box">14:00</div>
                     <div style="flex:1">
-                        <div style="font-weight:bold; font-size:1.1em;">陳美麗 - 核心控制</div>
-                        <div style="color:var(--text-light); font-size:0.9em;">私人工作室 • 第 1 週 (適應期)</div>
+                        <div style="font-weight:bold;">陳美麗 - 核心</div>
+                        <div style="color:var(--text-light); font-size:0.85em;">私人工作室</div>
                     </div>
-                    <button class="btn btn-outline btn-sm">查看</button>
+                    <button class="btn btn-outline">查看</button>
                 </div>
-
+                
                 <div class="timeline-item" style="border-left-color:var(--success)">
                     <div class="time-box">19:30</div>
                     <div style="flex:1">
-                        <div style="font-weight:bold; font-size:1.1em;">林大山 - 專項爆發力</div>
-                        <div style="color:var(--text-light); font-size:0.9em;">市民運動中心 • 第 6 週 (力量週期)</div>
+                        <div style="font-weight:bold;">林大山 - 爆發力</div>
+                        <div style="color:var(--text-light); font-size:0.85em;">市民運動中心</div>
                     </div>
-                    <button class="btn btn-outline btn-sm">查看</button>
+                    <button class="btn btn-outline">查看</button>
                 </div>
-
             </div>
-        </div>
 
-        <div id="page-students" class="page-view">
-            <div class="top-bar">
-                <h2>👥 學員管理</h2>
-                <button class="btn btn-primary">+ 新增學員</button>
-            </div>
-            <div class="content-wrapper">
-                <div style="margin-bottom:20px; display:flex; gap:10px;">
-                    <input type="text" placeholder="搜尋學員姓名..." style="padding:10px; width:300px; border:1px solid #ccc; border-radius:8px;">
-                    <select style="padding:10px; border-radius:8px; border:1px solid #ccc;"><option>所有狀態</option><option>即將到期</option></select>
+            <div id="page-students" class="page-view" style="display:none;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h3 style="margin:0;">學員管理</h3>
                 </div>
-
+                <input type="text" placeholder="🔍 搜尋學員..." style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:15px; box-sizing:border-box;">
+                
                 <div class="student-grid" id="student-list-container">
                     </div>
             </div>
-        </div>
 
-        <div id="page-student-detail" class="page-view">
-            <div class="top-bar">
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <button class="btn btn-outline" onclick="navTo('students')"><span class="material-icons">arrow_back</span></button>
-                    <h2 id="detail-name" style="margin:0">學員詳情</h2>
-                </div>
-                <div style="display:flex; gap:10px;">
-                    <button class="btn btn-outline" onclick="alert('編輯個資')">✏️ 修改個人資料</button>
-                    <button class="btn btn-primary">續約會籍</button>
-                </div>
-            </div>
+            <div id="page-student-detail" class="page-view" style="display:none;">
+                <button class="btn btn-outline" onclick="navTo('students')" style="margin-bottom:15px;">
+                    <span class="material-icons" style="font-size:16px;">arrow_back</span> 返回列表
+                </button>
 
-            <div class="content-wrapper">
                 <div class="profile-header">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div class="profile-top-row" style="display:flex; justify-content:space-between; align-items:flex-start;">
                         <div>
-                            <h1 style="margin:0; font-size:1.8em; color:var(--primary);" id="p-name">王小明</h1>
-                            <p style="color:var(--text-light); margin:5px 0;">目標：<span id="p-goal">增肌 / 肌肥大</span></p>
-                            <span class="status-active" style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:4px; font-size:0.8em;">會籍剩餘：45 天</span>
+                            <h2 style="margin:0; color:var(--primary);" id="p-name">王小明</h2>
+                            <p style="color:var(--text-light); margin:5px 0; font-size:0.9em;">目標：<span id="p-goal">增肌</span></p>
                         </div>
-                        <div style="text-align:right; font-size:0.9em; color:var(--text-light);">
-                            上次測量：2025/10/20<br>
-                            傷病史：左肩夾擠 (已恢復 90%)
+                        <div style="text-align:right; font-size:0.8em; color:var(--text-light);">
+                            <span style="background:#e0f2fe; color:#0369a1; padding:3px 8px; border-radius:10px; font-weight:bold;">剩餘 45 天</span>
                         </div>
                     </div>
                     
                     <div class="metrics-grid">
                         <div class="metric-box">
                             <div class="metric-val" id="m-weight">72.5</div>
-                            <div class="metric-label">體重 (kg)</div>
+                            <div class="metric-label">體重</div>
                         </div>
                         <div class="metric-box">
                             <div class="metric-val" id="m-pbf">18.5%</div>
-                            <div class="metric-label">體脂率</div>
+                            <div class="metric-label">體脂</div>
                         </div>
                         <div class="metric-box">
                             <div class="metric-val" id="m-smm">34.2</div>
-                            <div class="metric-label">骨骼肌重 (kg)</div>
+                            <div class="metric-label">肌肉量</div>
                         </div>
                         <div class="metric-box">
                             <div class="metric-val">23.4</div>
@@ -299,194 +331,120 @@
                     </div>
                 </div>
 
-                <h3 style="margin-bottom:15px;">📅 課表管理 (Training Log)</h3>
-                
-                <div class="periodization-bar">
-                    <div>
-                        <span style="opacity:0.7">2025 年度計畫 > Q4 > </span>
-                        <span style="font-weight:bold; font-size:1.1em;">肌肥大週期 (Hypertrophy Block)</span>
-                    </div>
-                    <div style="display:flex; gap:10px; align-items:center;">
-                        <button class="btn btn-outline btn-sm" style="background:rgba(255,255,255,0.2); color:white; border:none;">&lt;</button>
-                        <span>11月 November</span>
-                        <button class="btn btn-outline btn-sm" style="background:rgba(255,255,255,0.2); color:white; border:none;">&gt;</button>
-                    </div>
+                <h4 style="margin:0 0 10px 0;">📅 11月 課表</h4>
+                <div class="calendar-grid">
+                    <div class="cal-header">一</div><div class="cal-header">二</div><div class="cal-header">三</div>
+                    <div class="cal-header">四</div><div class="cal-header">五</div><div class="cal-header">六</div><div class="cal-header">日</div>
+                    <div id="calendar-days" style="display:contents;"></div>
                 </div>
-
-                <div class="calendar-container">
-                    <div class="calendar-grid">
-                        <div class="cal-header">MON</div><div class="cal-header">TUE</div><div class="cal-header">WED</div>
-                        <div class="cal-header">THU</div><div class="cal-header">FRI</div><div class="cal-header">SAT</div><div class="cal-header">SUN</div>
-                        
-                        <div id="calendar-days" style="display:contents;"></div>
-                    </div>
-                </div>
-
             </div>
+
         </div>
     </main>
 
     <div id="workout-editor" class="editor-panel">
-        <div style="padding:20px; background:var(--primary); color:white; display:flex; justify-content:space-between; align-items:center;">
-            <h3 style="margin:0" id="editor-date">11/21 訓練課表</h3>
-            <button class="btn btn-outline btn-sm" onclick="closeEditor()">關閉 X</button>
+        <div style="padding:15px; background:var(--primary); color:white; display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="margin:0; font-size:1em;" id="editor-date">訓練課表</h3>
+            <button class="btn btn-outline" onclick="closeEditor()" style="color:black; padding:5px 10px;">關閉</button>
         </div>
-        <div class="editor-content">
-            <div style="margin-bottom:20px;">
-                <label style="font-size:0.9em; color:gray;">訓練主題</label>
-                <input type="text" value="下肢推 | 蹲舉重點" style="width:100%; padding:10px; margin-top:5px; border:1px solid #ccc; border-radius:6px;">
-            </div>
-
-            <div class="module-box">
-                <div style="font-weight:bold; color:var(--text-main); margin-bottom:10px;">🔥 暖身模組</div>
-                <div style="font-size:0.9em;">• 90/90 呼吸 x 2 min</div>
-                <div style="font-size:0.9em;">• 青蛙趴 x 10 reps</div>
-            </div>
-
-            <div class="module-box main-train">
-                <div style="font-weight:bold; color:#991b1b; margin-bottom:10px;">🏋️ 主要訓練模組</div>
-                <div style="background:white; padding:10px; border:1px solid #eee; margin-bottom:5px; border-radius:4px;">
-                    <div style="font-weight:bold;">背槓深蹲 (Back Squat)</div>
+        <div style="padding:20px; overflow-y:auto; flex:1;">
+            <div style="background:#f1f5f9; padding:15px; border-radius:8px; margin-bottom:15px;">
+                <strong>🏋️ 主要訓練模組</strong>
+                <div style="background:white; padding:10px; margin-top:10px; border-radius:6px; font-size:0.9em;">
+                    <div>背槓深蹲</div>
                     <div style="color:gray; font-size:0.9em;">4 組 x 6 下 @ RPE 8</div>
                 </div>
-                <div style="background:white; padding:10px; border:1px solid #eee; border-radius:4px;">
-                    <div style="font-weight:bold;">羅馬尼亞硬舉 (RDL)</div>
-                    <div style="color:gray; font-size:0.9em;">3 組 x 10 下 @ RPE 7</div>
-                </div>
             </div>
-
-            <button class="btn btn-primary" style="width:100%; margin-top:20px;">儲存變更</button>
-            <button class="btn btn-outline" style="width:100%; margin-top:10px; color:var(--danger); border-color:var(--danger);">刪除此訓練</button>
+            <button class="btn btn-primary" style="width:100%; padding:12px;">儲存變更</button>
         </div>
     </div>
 
 <script>
-    // --- 資料 Mock ---
-    const students = [
-        { 
-            id: 1, name: '王小明', goal: '增肌 / 肌肥大', expiry: '2025-12-31', 
-            metrics: { weight: 72.5, pbf: '18.5%', smm: 34.2 },
-            status: 'active'
-        },
-        { 
-            id: 2, name: '陳美麗', goal: '減脂 / 體態雕塑', expiry: '2025-11-25', 
-            metrics: { weight: 54.0, pbf: '24.0%', smm: 21.5 },
-            status: 'expiring'
-        },
-        { 
-            id: 3, name: '林大山', goal: '力量 / 健力三項', expiry: '2026-03-10', 
-            metrics: { weight: 88.0, pbf: '15.0%', smm: 42.0 },
-            status: 'active'
-        }
-    ];
-
-    // 模擬訓練紀錄 (key: 日期)
-    const workoutLogs = {
-        '2025-11-03': '上肢推',
-        '2025-11-05': '下肢蹲',
-        '2025-11-07': '全身代謝',
-        '2025-11-20': '背部專項',
-    };
+    // --- 側邊欄開關邏輯 (Mobile) ---
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.querySelector('.sidebar-overlay');
+        sidebar.classList.toggle('active');
+        overlay.classList.toggle('active');
+    }
 
     // --- 導覽邏輯 ---
     function navTo(pageId, el) {
-        // Sidebar Active State
+        // 關閉手機側邊欄
+        if(window.innerWidth <= 768) {
+            toggleSidebar();
+        }
+
+        // Sidebar UI update
         if(el) {
             document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
             el.classList.add('active');
         }
+        
         // Page Switch
-        document.querySelectorAll('.page-view').forEach(p => p.classList.remove('active'));
-        document.getElementById(`page-${pageId}`).classList.add('active');
+        document.querySelectorAll('.page-view').forEach(p => p.style.display = 'none');
+        document.getElementById(`page-${pageId}`).style.display = 'block';
 
         if(pageId === 'students') renderStudentList();
     }
 
     // --- 渲染學員列表 ---
+    const students = [
+        { id: 1, name: '王小明', goal: '增肌', metrics: { weight: 72.5, pbf: '18.5%', smm: 34.2 } },
+        { id: 2, name: '陳美麗', goal: '減脂', metrics: { weight: 54.0, pbf: '24.0%', smm: 21.5 } },
+    ];
+
     function renderStudentList() {
         const container = document.getElementById('student-list-container');
         container.innerHTML = '';
-        
         students.forEach(stu => {
-            const isExpiring = stu.status === 'expiring';
-            const statusBadge = isExpiring 
-                ? `<span class="status-tag status-expiring">⚠️ 會籍即將到期</span>`
-                : `<span class="status-tag status-active">● 活躍</span>`;
-            
-            const expiryColor = isExpiring ? 'color:#ef4444; font-weight:bold;' : 'color:#64748b;';
-
             container.innerHTML += `
                 <div class="student-card" onclick="openStudentDetail(${stu.id})">
-                    ${statusBadge}
-                    <div class="card-header">
-                        <div class="avatar">${stu.name[0]}</div>
+                    <div style="display:flex; align-items:center; gap:15px;">
+                        <div style="width:45px; height:45px; background:#f1f5f9; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold;">${stu.name[0]}</div>
                         <div>
-                            <div style="font-weight:bold; font-size:1.2em;">${stu.name}</div>
-                            <div style="font-size:0.9em; color:#64748b;">${stu.goal}</div>
+                            <div style="font-weight:bold;">${stu.name}</div>
+                            <div style="font-size:0.85em; color:#64748b;">${stu.goal}</div>
                         </div>
-                    </div>
-                    <div style="font-size:0.85em; border-top:1px solid #f1f5f9; padding-top:10px;">
-                        <span style="${expiryColor}">到期日：${stu.expiry}</span>
                     </div>
                 </div>
             `;
         });
     }
 
-    // --- 打開學員詳情 & 渲染日曆 ---
     function openStudentDetail(id) {
         const stu = students.find(s => s.id === id);
-        if(!stu) return;
-
-        // 填入個資
         document.getElementById('p-name').innerText = stu.name;
         document.getElementById('p-goal').innerText = stu.goal;
-        document.getElementById('m-weight').innerText = stu.metrics.weight;
-        document.getElementById('m-pbf').innerText = stu.metrics.pbf;
-        document.getElementById('m-smm').innerText = stu.metrics.smm;
-        document.getElementById('detail-name').innerText = stu.name + " 的檔案";
-
-        // 生成 11月日曆 (簡單模擬 30 天)
+        // Metrics update...
+        
+        // 模擬日曆
         const calContainer = document.getElementById('calendar-days');
         calContainer.innerHTML = '';
-
-        // 假設 11/1 是星期六，前面補 5 個空位
-        for(let i=0; i<5; i++) {
-            calContainer.innerHTML += `<div style="background:transparent;"></div>`;
-        }
-
-        for(let day=1; day<=30; day++) {
-            const dateStr = `2025-11-${day.toString().padStart(2, '0')}`;
-            const hasWorkout = workoutLogs[dateStr];
-            const workoutHtml = hasWorkout 
-                ? `<span class="workout-dot">${hasWorkout}</span>` 
-                : '';
-
+        // 補前空位
+        for(let i=0; i<2; i++) calContainer.innerHTML += `<div></div>`;
+        
+        for(let i=1; i<=30; i++) {
+            const hasWorkout = [3, 5, 7, 20].includes(i); // 假裝有課的日子
+            const dot = hasWorkout ? `<span class="workout-dot">下肢蹲</span>` : '';
             calContainer.innerHTML += `
-                <div class="cal-day" onclick="openWorkoutEditor('${dateStr}')">
-                    <div class="cal-date">${day}</div>
-                    ${workoutHtml}
-                    ${day === 21 ? '<div style="width:6px; height:6px; background:red; border-radius:50%; position:absolute; top:10px; right:10px;"></div>' : ''} 
+                <div class="cal-day" onclick="openEditor()">
+                    <div>${i}</div>
+                    ${dot}
                 </div>
             `;
-        } // (Day 21 加紅點模擬"今天")
+        }
 
-        // 切換頁面
-        document.querySelectorAll('.page-view').forEach(p => p.classList.remove('active'));
-        document.getElementById('page-student-detail').classList.add('active');
+        navTo('student-detail');
     }
 
-    // --- 側滑編輯器 ---
-    function openWorkoutEditor(date) {
-        document.getElementById('editor-date').innerText = `${date} 訓練課表`;
+    // 編輯器
+    function openEditor() {
         document.getElementById('workout-editor').classList.add('open');
     }
     function closeEditor() {
         document.getElementById('workout-editor').classList.remove('open');
     }
-
-    // 初始畫面
-    renderStudentList();
 
 </script>
 </body>
