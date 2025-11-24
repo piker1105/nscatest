@@ -2,450 +2,1003 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>模組化訓練系統 | V6 行動優化版</title>
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>週期化多維度訓練設計儀表板</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM (使用 React 18) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Prop-types (Recharts 依賴) -->
+    <script src="https://unpkg.com/prop-types/prop-types.js"></script>
+    
+    <!-- Recharts (鎖定穩定版本 2.12.7) -->
+    <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+
+    <!-- PDF Generation Libraries: html2canvas for capturing DOM, jspdf for creating PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
     <style>
-        :root {
-            --primary: #0f172a;
-            --primary-light: #1e293b;
-            --accent: #3b82f6;
-            --bg: #f8fafc;
-            --white: #ffffff;
-            --text-main: #334155;
-            --text-light: #64748b;
-            --border: #e2e8f0;
-            --danger: #ef4444;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --sidebar-width: 260px;
-        }
-        
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg);
-            color: var(--text-main);
-            margin: 0;
-            padding: 0;
-            height: 100vh;
-            display: flex;
-            overflow: hidden;
+            background-color: #f3f4f6;
+            font-family: 'Inter', 'Microsoft JhengHei', sans-serif;
         }
-
-        /* --- 1. 響應式側邊欄 (Sidebar / Drawer) --- */
-        aside {
-            width: var(--sidebar-width);
-            background: var(--primary);
-            color: white;
-            display: flex;
-            flex-direction: column;
-            flex-shrink: 0;
-            height: 100%;
-            position: relative;
-            z-index: 200;
-            transition: transform 0.3s ease;
+        .draggable-source {
+            cursor: grab;
+            transition: all 0.2s;
         }
-
-        /* 手機版遮罩 */
-        .sidebar-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5); z-index: 150;
-            display: none; opacity: 0; transition: opacity 0.3s;
+        .draggable-source:active {
+            cursor: grabbing;
+            transform: scale(0.95);
         }
-
-        .brand {
-            padding: 20px;
-            font-size: 1.2em;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-content: space-between; /* 手機版要放關閉鈕 */
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+        .drop-zone {
+            min-height: 120px;
+            transition: background-color 0.2s;
         }
-        .nav-menu { padding: 15px; flex: 1; overflow-y: auto; }
-        .nav-item {
-            display: flex; align-items: center; gap: 15px;
-            padding: 12px 15px; margin-bottom: 5px;
-            color: #94a3b8; text-decoration: none;
-            border-radius: 10px; cursor: pointer; transition: 0.2s;
+        .drop-zone.drag-over {
+            background-color: #e5e7eb;
+            border: 2px dashed #9ca3af;
         }
-        .nav-item:hover { background: rgba(255,255,255,0.05); color: white; }
-        .nav-item.active { background: var(--accent); color: white; }
-
-        /* Sidebar Widget */
-        .sidebar-widget {
-            margin: 15px; padding: 15px;
-            background: rgba(255,255,255,0.05);
-            border-radius: 12px; font-size: 0.85em;
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
         }
-
-        /* --- 2. 主內容區 --- */
-        main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            width: 100%;
-            overflow: hidden; /* 讓內部捲動 */
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
         }
-
-        /* 頂部導覽列 (Header) */
-        .top-bar {
-            background: var(--white);
-            padding: 15px 20px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            height: 60px;
-            flex-shrink: 0;
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
         }
-        .menu-toggle-btn {
-            display: none; /* 電腦版隱藏 */
-            background: none; border: none; cursor: pointer;
-            color: var(--primary); padding: 0; margin-right: 15px;
-        }
-
-        .content-scroll-area {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            -webkit-overflow-scrolling: touch; /* iOS 滾動優化 */
-        }
-
-        /* RWD Components */
-        .btn { padding: 8px 14px; border-radius: 8px; border: none; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; font-size: 0.9em; white-space: nowrap; }
-        .btn-primary { background: var(--primary); color: white; }
-        .btn-outline { background: white; border: 1px solid #cbd5e1; color: var(--text-main); }
-
-        /* Timeline (Dashboard) */
-        .timeline-item {
-            display: flex; gap: 15px; padding: 15px;
-            background: white; border-radius: 12px; margin-bottom: 15px;
-            border-left: 5px solid var(--accent); box-shadow: 0 2px 5px rgba(0,0,0,0.03);
-            align-items: center;
-        }
-        .time-box { font-weight: bold; font-size: 1.1em; color: var(--primary); min-width: 60px; }
-
-        /* Student Grid */
-        .student-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 15px;
-        }
-        .student-card {
-            background: white; border-radius: 12px; padding: 15px;
-            border: 1px solid var(--border); position: relative;
-        }
-
-        /* Profile & Metrics */
-        .profile-header { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid var(--border); }
-        .metrics-grid {
-            display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;
-            margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border);
-        }
-        .metric-box { text-align: center; }
-        .metric-val { font-size: 1.3em; font-weight: bold; color: var(--primary); }
-        .metric-label { font-size: 0.8em; color: var(--text-light); }
-
-        /* Calendar */
-        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; background: white; padding: 10px; border-radius: 0 0 12px 12px; border: 1px solid var(--border); }
-        .cal-header { text-align: center; font-size: 0.8em; color: var(--text-light); padding-bottom: 5px; }
-        .cal-day {
-            min-height: 80px; border: 1px solid #f1f5f9; border-radius: 6px;
-            padding: 5px; position: relative; font-size: 0.8em;
-        }
-        .workout-dot {
-            background: #e0f2fe; color: #0284c7; padding: 2px 4px;
-            border-radius: 3px; font-size: 0.75em; margin-top: 2px;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;
-        }
-
-        /* Slide Editor */
-        .editor-panel {
-            position: fixed; top: 0; right: -100%; width: 600px; height: 100%;
-            background: white; z-index: 300; transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            display: flex; flex-direction: column; box-shadow: -5px 0 25px rgba(0,0,0,0.2);
-        }
-        .editor-panel.open { right: 0; }
-
-        /* --- 📱 Mobile Media Queries (關鍵修正) --- */
-        @media (max-width: 768px) {
-            /* 隱藏 Sidebar */
-            aside {
-                position: fixed; left: 0; top: 0; bottom: 0;
-                transform: translateX(-100%); /* 預設移出畫面 */
-                box-shadow: 5px 0 15px rgba(0,0,0,0.1);
-            }
-            aside.active { transform: translateX(0); } /* 滑入 */
-            
-            .sidebar-overlay.active { display: block; opacity: 1; }
-            .menu-toggle-btn { display: block; } /* 顯示漢堡按鈕 */
-            
-            /* 調整內距 */
-            .content-scroll-area { padding: 15px; }
-            
-            /* Profile 調整 */
-            .profile-top-row { flex-direction: column; gap: 10px; }
-            .profile-top-row > div { text-align: left !important; }
-            
-            /* Metrics 變 2x2 */
-            .metrics-grid { grid-template-columns: repeat(2, 1fr); }
-            
-            /* 日曆縮小字體 */
-            .cal-day { min-height: 60px; font-size: 0.75em; }
-            .workout-dot { font-size: 0.7em; padding: 1px 2px; }
-            
-            /* 編輯器全螢幕 */
-            .editor-panel { width: 100%; }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
         }
     </style>
 </head>
 <body>
+    <div id="root"></div>
 
-    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+        const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, Cell } = window.Recharts;
 
-    <aside id="sidebar">
-        <div class="brand">
-            <span style="display:flex; align-items:center; gap:10px;">
-                <span class="material-icons">fitness_center</span> 模組化訓練
-            </span>
-            <span class="material-icons" style="cursor:pointer; opacity:0.7;" onclick="toggleSidebar()">close</span>
-        </div>
+        // --- Constants ---
+        const TOTAL_WEEKS = 52;
+        const BLOCK_WEEKS = 4; // 月週期 / Mesocycle
+        const QUARTER_WEEKS = 13; // 季週期 / Quarter
+
+        const VIEW_MODES = [
+            { id: 'WEEK', name: '週 (Microcycle)', step: 1, label: 'W' },
+            { id: 'MONTH', name: '月 (Mesocycle)', step: BLOCK_WEEKS, label: 'Block' },
+            { id: 'QUARTER', name: '季 (Trimester)', step: QUARTER_WEEKS, label: 'Q' },
+            { id: 'YEAR', name: '年 (Macrocycle)', step: TOTAL_WEEKS, label: 'Year' }
+        ];
+
+        // --- Data Definitions ---
+        const MODULE_TYPES = {
+            STRENGTH: { id: 'strength', name: '基礎肌力', color: '#3b82f6', bgColor: 'bg-blue-100', borderColor: 'border-blue-500', textColor: 'text-blue-800', summary: 'S' },
+            HYPERTROPHY: { id: 'hypertrophy', name: '肌肥大', color: '#8b5cf6', bgColor: 'bg-purple-100', borderColor: 'border-purple-500', textColor: 'text-purple-800', summary: 'H' },
+            POWER: { id: 'power', name: '爆發力', color: '#ef4444', bgColor: 'bg-red-100', borderColor: 'border-red-500', textColor: 'text-red-800', summary: 'P' },
+            ENDURANCE: { id: 'endurance', name: '有氧耐力', color: '#10b981', bgColor: 'bg-green-100', borderColor: 'border-green-500', textColor: 'text-green-800', summary: 'E' },
+            RECOVERY: { id: 'recovery', name: '主動恢復', color: '#f59e0b', bgColor: 'bg-yellow-100', borderColor: 'border-yellow-500', textColor: 'text-yellow-800', summary: 'R' },
+        };
+
+        const INITIAL_MODULES = [
+            { id: 'm1', type: 'STRENGTH', name: '深蹲重點訓練', sets: 5, reps: 5, rpe: 8, duration: 60 },
+            { id: 'm2', type: 'HYPERTROPHY', name: '上肢推拉', sets: 4, reps: 10, rpe: 7, duration: 50 },
+            { id: 'm3', type: 'POWER', name: '增強式跳躍', sets: 6, reps: 3, rpe: 9, duration: 40 },
+            { id: 'm4', type: 'ENDURANCE', name: 'LISS 慢跑', sets: 1, reps: 1, rpe: 4, duration: 45 },
+            { id: 'm5', type: 'RECOVERY', name: '滾筒放鬆', sets: 1, reps: 1, rpe: 2, duration: 30 },
+        ];
+
+        const DAYS = ['週一', '週二', '週三', '週四', '週五', '週六', '週日'];
+
+        // --- Icons (Inline SVGs) ---
+        const Icons = {
+            Dumbbell: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6.5 6.5 11 11"/><path d="m21 21-1-1"/><path d="m3 3 1 1"/><path d="m18 22 4-4"/><path d="m2 6 4-4"/><path d="m3 10 7.9-7.9a2.12 2.12 0 0 1 3 3L6.9 12.1a2 1.2 2 1.2 0 0 1-1.7 0l-1.4-1.4a1.2 1.2 0 0 1 0-1.7z"/><path d="m14 11 7.9-7.9a2.12 2.12 0 0 1 3 3L17.9 13.1a2.12 2.12 0 0 1-3-3z"/></svg>,
+            Zap: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>,
+            Heart: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>,
+            Activity: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>,
+            Smile: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></svg>,
+            Trash: () => <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>,
+            ChevronLeft: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>,
+            ChevronRight: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>,
+            Clock: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+            FileText: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>,
+        };
+
+        const getIcon = (type) => {
+            switch(type) {
+                case 'STRENGTH': return <Icons.Dumbbell />;
+                case 'HYPERTROPHY': return <Icons.Activity />;
+                case 'POWER': return <Icons.Zap />;
+                case 'ENDURANCE': return <Icons.Heart />;
+                case 'RECOVERY': return <Icons.Smile />;
+                default: return <Icons.Activity />;
+            }
+        };
+
+        // --- Calculation Logic ---
+        const calculateLoad = (mod) => {
+            if (mod.type === 'ENDURANCE' || mod.type === 'RECOVERY') {
+                return mod.duration * mod.rpe;
+            } else {
+                return (mod.sets * mod.reps) * mod.rpe * 1.5; 
+            }
+        };
         
-        <div class="sidebar-widget">
-            <div style="font-weight:bold; color:#cbd5e1; margin-bottom:10px; display:flex; justify-content:space-between;">
-                <span>📅 今日提醒</span>
-                <span style="color:var(--accent)">11/21</span>
-            </div>
-            <div style="margin-bottom:8px; color:#cbd5e1;">
-                <span class="material-icons" style="font-size:14px; vertical-align:text-top;">schedule</span> 3 堂課程
-            </div>
-            <div style="margin-bottom:8px; color:#cbd5e1;">
-                <span class="material-icons" style="font-size:14px; vertical-align:text-top;">place</span> 台北大安館
-            </div>
-        </div>
+        const getDailySummary = (modules) => {
+            const totalLoad = modules.reduce((acc, m) => acc + calculateLoad(m), 0);
+            const totalDuration = modules.reduce((acc, m) => acc + m.duration, 0);
 
-        <nav class="nav-menu">
-            <div class="nav-item active" onclick="navTo('dashboard', this)">
-                <span class="material-icons">dashboard</span> 儀表板
-            </div>
-            <div class="nav-item" onclick="navTo('students', this)">
-                <span class="material-icons">people</span> 學員管理
-            </div>
-            <div class="nav-item" onclick="alert('功能開發中')">
-                <span class="material-icons">inventory_2</span> 動作資料庫
-            </div>
-        </nav>
-    </aside>
-
-    <main>
-        <div class="top-bar">
-            <div style="display:flex; align-items:center;">
-                <button class="menu-toggle-btn" onclick="toggleSidebar()">
-                    <span class="material-icons">menu</span>
-                </button>
-                <h2 style="margin:0; font-size:1.1em;">Dashboard</h2>
-            </div>
-            <button class="btn btn-primary btn-sm">+ 快速新增</button>
-        </div>
-
-        <div class="content-scroll-area">
+            // Find the most frequent module type for summary
+            const typeCounts = modules.reduce((acc, m) => {
+                acc[m.type] = (acc[m.type] || 0) + 1;
+                return acc;
+            }, {});
             
-            <div id="page-dashboard" class="page-view active" style="display:block;">
-                <h3 style="margin:0 0 15px 0;">今日行程</h3>
-                
-                <div class="timeline-item">
-                    <div class="time-box">09:00</div>
-                    <div style="flex:1">
-                        <div style="font-weight:bold;">王小明 - 下肢肌力</div>
-                        <div style="color:var(--text-light); font-size:0.85em;">台北大安館</div>
-                    </div>
-                    <button class="btn btn-outline">查看</button>
-                </div>
+            let mainFocus = 'R';
+            let maxCount = 0;
+            if (Object.keys(typeCounts).length > 0) {
+                Object.keys(typeCounts).forEach(type => {
+                    if (typeCounts[type] > maxCount) {
+                        maxCount = typeCounts[type];
+                        mainFocus = MODULE_TYPES[type]?.summary || 'R';
+                    }
+                });
+            }
 
-                <div class="timeline-item" style="border-left-color:var(--warning)">
-                    <div class="time-box">14:00</div>
-                    <div style="flex:1">
-                        <div style="font-weight:bold;">陳美麗 - 核心</div>
-                        <div style="color:var(--text-light); font-size:0.85em;">私人工作室</div>
-                    </div>
-                    <button class="btn btn-outline">查看</button>
-                </div>
-                
-                <div class="timeline-item" style="border-left-color:var(--success)">
-                    <div class="time-box">19:30</div>
-                    <div style="flex:1">
-                        <div style="font-weight:bold;">林大山 - 爆發力</div>
-                        <div style="color:var(--text-light); font-size:0.85em;">市民運動中心</div>
-                    </div>
-                    <button class="btn btn-outline">查看</button>
-                </div>
-            </div>
+            return {
+                load: Math.round(totalLoad),
+                duration: totalDuration,
+                focus: mainFocus,
+                focusColor: MODULE_TYPES[modules.find(m => MODULE_TYPES[m.type].summary === mainFocus)?.type]?.color || '#9ca3af',
+                count: modules.length,
+            };
+        };
 
-            <div id="page-students" class="page-view" style="display:none;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                    <h3 style="margin:0;">學員管理</h3>
-                </div>
-                <input type="text" placeholder="🔍 搜尋學員..." style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:15px; box-sizing:border-box;">
-                
-                <div class="student-grid" id="student-list-container">
-                    </div>
-            </div>
+        // --- Components ---
 
-            <div id="page-student-detail" class="page-view" style="display:none;">
-                <button class="btn btn-outline" onclick="navTo('students')" style="margin-bottom:15px;">
-                    <span class="material-icons" style="font-size:16px;">arrow_back</span> 返回列表
-                </button>
-
-                <div class="profile-header">
-                    <div class="profile-top-row" style="display:flex; justify-content:space-between; align-items:flex-start;">
+        const DraggableModule = ({ module, onDragStart }) => {
+            const styleInfo = MODULE_TYPES[module.type] || MODULE_TYPES.STRENGTH;
+            return (
+                <div 
+                    draggable 
+                    onDragStart={(e) => onDragStart(e, module)}
+                    className={`p-3 mb-2 rounded-lg border-l-4 shadow-sm bg-white cursor-grab hover:shadow-md transition-all flex items-center justify-between ${styleInfo.borderColor}`}
+                >
+                    <div className="flex items-center gap-2">
+                        <span className={styleInfo.textColor}>{getIcon(module.type)}</span>
                         <div>
-                            <h2 style="margin:0; color:var(--primary);" id="p-name">王小明</h2>
-                            <p style="color:var(--text-light); margin:5px 0; font-size:0.9em;">目標：<span id="p-goal">增肌</span></p>
-                        </div>
-                        <div style="text-align:right; font-size:0.8em; color:var(--text-light);">
-                            <span style="background:#e0f2fe; color:#0369a1; padding:3px 8px; border-radius:10px; font-weight:bold;">剩餘 45 天</span>
+                            <p className="font-bold text-sm text-gray-700">{module.name}</p>
+                            <p className="text-xs text-gray-500">{styleInfo.name}</p>
                         </div>
                     </div>
+                </div>
+            );
+        };
+
+        const ScheduledModuleCard = ({ module, onClick, onDelete }) => {
+            const styleInfo = MODULE_TYPES[module.type] || MODULE_TYPES.STRENGTH;
+            const loadDisplay = module.type === 'ENDURANCE' || module.type === 'RECOVERY' 
+                ? `RPE ${module.rpe} | ${module.duration}分` 
+                : `${module.sets}組 x ${module.reps}次 @ RPE ${module.rpe}`;
+
+            return (
+                <div 
+                    className={`group relative p-2 mb-2 rounded border ${styleInfo.bgColor} ${styleInfo.borderColor} cursor-pointer hover:brightness-95 transition-all`}
+                    onClick={onClick}
+                >
+                    <div className="flex justify-between items-start mb-1">
+                        <span className={`text-xs font-bold ${styleInfo.textColor} uppercase tracking-wider`}>{styleInfo.name}</span>
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                            className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                            <Icons.Trash />
+                        </button>
+                    </div>
+                    <p className="text-sm font-semibold text-gray-800 leading-tight mb-1">{module.name}</p>
+                    <p className="text-xs text-gray-600 font-mono">{loadDisplay}</p>
+                </div>
+            );
+        };
+
+        const EditModal = ({ isOpen, onClose, module, onSave }) => {
+            if (!isOpen || !module) return null;
+            
+            const [localModule, setLocalModule] = useState({...module});
+
+            useEffect(() => {
+                setLocalModule({...module});
+            }, [module]);
+
+            const handleChange = (field, value) => {
+                setLocalModule(prev => ({ ...prev, [field]: Number(value) }));
+            };
+
+            const isCardio = localModule.type === 'ENDURANCE' || localModule.type === 'RECOVERY';
+
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm">
+                        <div className="flex justify-between items-center mb-4 border-b pb-2">
+                            <h3 className="text-lg font-bold text-gray-800">編輯模組參數</h3>
+                            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+                        </div>
+                        
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">模組名稱</label>
+                                <div className="text-gray-800 font-medium">{localModule.name}</div>
+                            </div>
+
+                            {!isCardio && (
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">組數 (Sets)</label>
+                                        <input 
+                                            type="number" 
+                                            min="1" max="20"
+                                            value={localModule.sets}
+                                            onChange={(e) => handleChange('sets', e.target.value)}
+                                            className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">次數 (Reps)</label>
+                                        <input 
+                                            type="number" 
+                                            min="1" max="100"
+                                            value={localModule.reps}
+                                            onChange={(e) => handleChange('reps', e.target.value)}
+                                            className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">強度 (RPE 1-10)</label>
+                                <div className="flex items-center gap-2">
+                                    <input 
+                                        type="range" 
+                                        min="1" max="10" 
+                                        value={localModule.rpe}
+                                        onChange={(e) => handleChange('rpe', e.target.value)}
+                                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                    />
+                                    <span className={`font-bold w-8 text-center ${localModule.rpe > 8 ? 'text-red-600' : 'text-blue-600'}`}>{localModule.rpe}</span>
+                                </div>
+                                <p className="text-xs text-gray-400 mt-1">10=力竭, 1=極輕鬆</p>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">持續時間 (分鐘)</label>
+                                <input 
+                                    type="number" 
+                                    min="5" max="180"
+                                    value={localModule.duration}
+                                    onChange={(e) => handleChange('duration', e.target.value)}
+                                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="mt-6 flex justify-end gap-2">
+                            <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">取消</button>
+                            <button 
+                                onClick={() => onSave(localModule)}
+                                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
+                            >
+                                儲存變更
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+
+        // --- View Components ---
+
+        // View 1: WEEK View (Microcycle) - Detailed 7-day calendar (Existing)
+        const WeekView = ({ currentWeekSchedule, chartData, handleDragOver, handleDragLeave, handleDrop, openEditModal, deleteModule }) => (
+            <div className="flex gap-4 h-full min-w-[1000px]">
+                {DAYS.map((day, index) => {
+                    const dailyLoad = chartData.find(d => d.name === day)?.load || 0;
+                    return (
+                        <div 
+                            key={day} 
+                            className={`flex-1 flex flex-col min-w-[140px] rounded-xl bg-white border transition-colors ${
+                                index === 6 || index === 5 ? 'bg-gray-50/80 border-gray-200' : 'border-gray-200 shadow-sm'
+                            }`}
+                        >
+                            <div className="p-3 text-center border-b bg-gray-50 rounded-t-xl">
+                                <span className="font-bold text-gray-700">{day}</span>
+                                <div className="text-xs text-gray-400 mt-1">Day {index + 1}</div>
+                            </div>
+                            <div 
+                                className="flex-1 p-2 overflow-y-auto drop-zone"
+                                onDragOver={handleDragOver}
+                                onDragLeave={handleDragLeave}
+                                onDrop={(e) => handleDrop(e, index)}
+                            >
+                                {currentWeekSchedule[index]?.length === 0 && (
+                                    <div className="h-full flex items-center justify-center text-gray-300 text-sm italic pointer-events-none">
+                                        休息日
+                                    </div>
+                                )}
+                                {currentWeekSchedule[index]?.map((module, mIndex) => (
+                                    <ScheduledModuleCard 
+                                        key={module.instanceId}
+                                        module={module}
+                                        onClick={() => openEditModal(index, mIndex, module)}
+                                        onDelete={() => deleteModule(index, mIndex)}
+                                    />
+                                ))}
+                            </div>
+                            {/* Daily Load Indicator */}
+                            <div className="p-2 border-t text-center">
+                                <div className="text-xs font-bold text-gray-400 uppercase">負荷</div>
+                                <div className={`text-sm font-bold ${dailyLoad > 600 ? 'text-red-500' : 'text-gray-700'}`}>
+                                    {dailyLoad}
+                                </div>
+                            </div>
+                        </div>
+                    )
+                })}
+            </div>
+        );
+
+        // View 2: MONTH View (Mesocycle) - 4 weeks
+        const MonthView = ({ allWeeksSchedule, viewStartIndex }) => {
+            const startWeek = Math.floor(viewStartIndex / BLOCK_WEEKS) * BLOCK_WEEKS;
+            const blockWeeks = allWeeksSchedule.slice(startWeek, startWeek + BLOCK_WEEKS);
+            
+            return (
+                <div className="overflow-x-auto overflow-y-auto p-4 bg-white rounded-xl shadow-lg min-w-[1000px]">
+                    <table className="w-full text-sm border-collapse">
+                        <thead>
+                            <tr className="bg-gray-100 sticky top-0">
+                                <th className="p-3 font-bold text-left text-gray-600 border-b border-r w-1/12">週次</th>
+                                {DAYS.map((day, index) => (
+                                    <th key={index} className="p-3 font-bold text-gray-600 border-b border-r">
+                                        {day}
+                                    </th>
+                                ))}
+                                <th className="p-3 font-bold text-gray-600 border-b w-1/12">週總負荷</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {blockWeeks.map((weekSchedule, weekOffset) => {
+                                const weekIndex = startWeek + weekOffset;
+                                const isCurrent = weekIndex === viewStartIndex;
+                                
+                                // Calculate total week load for the last column
+                                const totalWeekLoad = Object.values(weekSchedule).flat().reduce((acc, mod) => acc + calculateLoad(mod), 0);
+
+                                return (
+                                    <tr key={weekIndex} className={`hover:bg-blue-50/50 transition-colors ${isCurrent ? 'bg-blue-50 font-semibold' : ''}`}>
+                                        <td className="p-3 border-b border-r font-bold text-gray-800 text-left">
+                                            W{weekIndex + 1}
+                                        </td>
+                                        {[...Array(7).keys()].map(dayIndex => { // Iterate through 7 days
+                                            const modules = weekSchedule[dayIndex] || [];
+                                            return (
+                                                <td key={dayIndex} className="p-3 border-b border-r text-left align-top">
+                                                    {modules.length > 0 ? (
+                                                        <div className="space-y-1">
+                                                            {modules.map(mod => (
+                                                                <p 
+                                                                    key={mod.instanceId} 
+                                                                    className={`text-xs font-medium text-gray-800 leading-tight p-0.5 rounded border ${MODULE_TYPES[mod.type].bgColor} ${MODULE_TYPES[mod.type].borderColor}`}
+                                                                    title={MODULE_TYPES[mod.type].name}
+                                                                >
+                                                                    <span className={`text-[10px] font-bold ${MODULE_TYPES[mod.type].textColor} mr-1`}>{MODULE_TYPES[mod.type].summary}</span>
+                                                                    {mod.name}
+                                                                </p>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-xs text-gray-400">休息</span>
+                                                    )}
+                                                </td>
+                                            );
+                                        })}
+                                        <td className={`p-3 border-b text-center font-extrabold ${totalWeekLoad > 4000 ? 'text-red-500' : 'text-gray-700'}`}>
+                                            {Math.round(totalWeekLoad)}
+                                        </td>
+                                    </tr>
+                                )
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            );
+        };
+
+        // View 3: QUARTER View (Trimester) - 13 weeks Load Summary
+        const QuarterView = ({ allWeeksSchedule, viewStartIndex }) => {
+            const startWeek = Math.floor(viewStartIndex / QUARTER_WEEKS) * QUARTER_WEEKS;
+            const endWeek = Math.min(startWeek + QUARTER_WEEKS, TOTAL_WEEKS);
+            const quarterWeeks = allWeeksSchedule.slice(startWeek, endWeek);
+
+            const data = quarterWeeks.map((weekSchedule, weekOffset) => {
+                const weekIndex = startWeek + weekOffset;
+                const totalLoad = Object.values(weekSchedule).flat().reduce((acc, mod) => acc + calculateLoad(mod), 0);
+                return {
+                    name: `W${weekIndex + 1}`,
+                    load: Math.round(totalLoad),
+                };
+            });
+
+            return (
+                <div className="p-4 bg-white rounded-xl shadow-lg h-full flex flex-col">
+                    <h3 className="text-lg font-bold text-gray-700 mb-4">季週期負荷趨勢 (W{startWeek + 1} - W{endWeek})</h3>
+                    <div className="flex-1 min-h-0">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={data} margin={{ top: 10, right: 20, left: 10, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                                <XAxis dataKey="name" tick={{fill: '#9ca3af', fontSize: 10}} />
+                                <YAxis yAxisId="left" orientation="left" stroke="#3b82f6" />
+                                <Tooltip 
+                                    contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'}}
+                                    formatter={(value) => [`${value} 負荷`, '總負荷']}
+                                />
+                                <Legend />
+                                <Bar yAxisId="left" dataKey="load" name="每週總負荷" fill="#3b82f6">
+                                    {data.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.load > 4500 ? '#ef4444' : '#3b82f6'} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            );
+        };
+
+        // View 4: YEAR View (Macrocycle) - 52 weeks Heatmap (Used for main view and PDF report)
+        const YearView = ({ allWeeksSchedule }) => {
+            const allWeekLoads = useMemo(() => {
+                return allWeeksSchedule.map((weekSchedule, weekIndex) => {
+                    const totalLoad = Object.values(weekSchedule).flat().reduce((acc, mod) => acc + calculateLoad(mod), 0);
+                    return { week: weekIndex + 1, load: Math.round(totalLoad) };
+                });
+            }, [allWeeksSchedule]);
+
+            // Simplified Color Logic based on Load Thresholds
+            const getColor = (load) => {
+                if (load === 0) return 'bg-gray-200';
+                if (load > 4500) return 'bg-blue-600'; // High
+                if (load > 2000) return 'bg-blue-400'; // Medium
+                return 'bg-blue-200/50'; // Low
+            };
+
+            // Group all weeks into 4 quarters of 13 weeks
+            const quarters = [
+                allWeekLoads.slice(0, 13),
+                allWeekLoads.slice(13, 26),
+                allWeekLoads.slice(26, 39),
+                allWeekLoads.slice(39, 52),
+            ];
+            
+            // Custom 13-column header for weeks 1-13 (using flex-1 for alignment)
+            const weekHeaders = [...Array(13).keys()].map(i => (
+                <div key={`col-${i}`} className={`flex-1 text-xs text-gray-500 font-bold text-center border-l border-r ${i % 4 === 3 ? 'border-r-2 border-dashed border-gray-300' : 'border-gray-200'} p-1`}>
+                    W{i + 1}
+                </div>
+            ));
+
+            return (
+                <div className="p-4 bg-white rounded-xl shadow-lg h-full overflow-y-auto">
+                    <h3 className="text-lg font-bold text-gray-700 mb-4">年度負荷宏週期 (52 週) - 四季概覽</h3>
                     
-                    <div class="metrics-grid">
-                        <div class="metric-box">
-                            <div class="metric-val" id="m-weight">72.5</div>
-                            <div class="metric-label">體重</div>
-                        </div>
-                        <div class="metric-box">
-                            <div class="metric-val" id="m-pbf">18.5%</div>
-                            <div class="metric-label">體脂</div>
-                        </div>
-                        <div class="metric-box">
-                            <div class="metric-val" id="m-smm">34.2</div>
-                            <div class="metric-label">肌肉量</div>
-                        </div>
-                        <div class="metric-box">
-                            <div class="metric-val">23.4</div>
-                            <div class="metric-label">BMI</div>
+                    {/* Header (1 label col + 13 weeks) */}
+                    <div className="flex bg-gray-100 rounded-t-lg border-x border-t min-w-[800px]">
+                        <div className="w-12 text-xs text-gray-500 font-bold text-center self-stretch flex items-center justify-center border-r p-1">Q/W</div>
+                        <div className="flex flex-1">
+                            {weekHeaders}
                         </div>
                     </div>
-                </div>
 
-                <h4 style="margin:0 0 10px 0;">📅 11月 課表</h4>
-                <div class="calendar-grid">
-                    <div class="cal-header">一</div><div class="cal-header">二</div><div class="cal-header">三</div>
-                    <div class="cal-header">四</div><div class="cal-header">五</div><div class="cal-header">六</div><div class="cal-header">日</div>
-                    <div id="calendar-days" style="display:contents;"></div>
-                </div>
-            </div>
-
-        </div>
-    </main>
-
-    <div id="workout-editor" class="editor-panel">
-        <div style="padding:15px; background:var(--primary); color:white; display:flex; justify-content:space-between; align-items:center;">
-            <h3 style="margin:0; font-size:1em;" id="editor-date">訓練課表</h3>
-            <button class="btn btn-outline" onclick="closeEditor()" style="color:black; padding:5px 10px;">關閉</button>
-        </div>
-        <div style="padding:20px; overflow-y:auto; flex:1;">
-            <div style="background:#f1f5f9; padding:15px; border-radius:8px; margin-bottom:15px;">
-                <strong>🏋️ 主要訓練模組</strong>
-                <div style="background:white; padding:10px; margin-top:10px; border-radius:6px; font-size:0.9em;">
-                    <div>背槓深蹲</div>
-                    <div style="color:gray; font-size:0.9em;">4 組 x 6 下 @ RPE 8</div>
-                </div>
-            </div>
-            <button class="btn btn-primary" style="width:100%; padding:12px;">儲存變更</button>
-        </div>
-    </div>
-
-<script>
-    // --- 側邊欄開關邏輯 (Mobile) ---
-    function toggleSidebar() {
-        const sidebar = document.getElementById('sidebar');
-        const overlay = document.querySelector('.sidebar-overlay');
-        sidebar.classList.toggle('active');
-        overlay.classList.toggle('active');
-    }
-
-    // --- 導覽邏輯 ---
-    function navTo(pageId, el) {
-        // 關閉手機側邊欄
-        if(window.innerWidth <= 768) {
-            toggleSidebar();
-        }
-
-        // Sidebar UI update
-        if(el) {
-            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-            el.classList.add('active');
-        }
-        
-        // Page Switch
-        document.querySelectorAll('.page-view').forEach(p => p.style.display = 'none');
-        document.getElementById(`page-${pageId}`).style.display = 'block';
-
-        if(pageId === 'students') renderStudentList();
-    }
-
-    // --- 渲染學員列表 ---
-    const students = [
-        { id: 1, name: '王小明', goal: '增肌', metrics: { weight: 72.5, pbf: '18.5%', smm: 34.2 } },
-        { id: 2, name: '陳美麗', goal: '減脂', metrics: { weight: 54.0, pbf: '24.0%', smm: 21.5 } },
-    ];
-
-    function renderStudentList() {
-        const container = document.getElementById('student-list-container');
-        container.innerHTML = '';
-        students.forEach(stu => {
-            container.innerHTML += `
-                <div class="student-card" onclick="openStudentDetail(${stu.id})">
-                    <div style="display:flex; align-items:center; gap:15px;">
-                        <div style="width:45px; height:45px; background:#f1f5f9; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold;">${stu.name[0]}</div>
-                        <div>
-                            <div style="font-weight:bold;">${stu.name}</div>
-                            <div style="font-size:0.85em; color:#64748b;">${stu.goal}</div>
+                    {/* The 4 Quarters (52 Weeks) - Use flex to ensure all 13 weeks take equal space */}
+                    {quarters.map((quarterWeeks, qIndex) => (
+                        <div key={qIndex} className="flex border-x border-b min-w-[800px]">
+                            {/* Quarter Label */}
+                            <div className="w-12 flex items-center justify-center border-r text-sm font-bold text-gray-700 bg-gray-50">
+                                Q{qIndex + 1}
+                            </div>
+                            {/* Weeks in the Quarter (13 weeks) */}
+                            <div className="flex flex-1">
+                                {quarterWeeks.map((weekData, wIndex) => (
+                                    <div 
+                                        key={weekData.week}
+                                        className={`flex-1 h-10 text-xs font-bold flex items-center justify-center p-1 cursor-default transition-all duration-300 ${getColor(weekData.load)} ${weekData.load > 0 ? 'text-white' : 'text-gray-500'} ${wIndex % 4 === 3 ? 'border-r-2 border-dashed border-gray-300' : ''}`}
+                                        title={`W${weekData.week}: 負荷 ${weekData.load}`}
+                                    >
+                                        {/* Display label based on load range */}
+                                        {weekData.load > 0 ? (weekData.load > 4500 ? '高' : (weekData.load > 2000 ? '中' : '低')) : '休'}
+                                    </div>
+                                ))}
+                            </div>
                         </div>
+                    ))}
+
+                    {/* Legend */}
+                    <div className="mt-4 p-3 bg-gray-100 rounded-lg flex flex-wrap justify-center text-xs space-x-4">
+                        <div className="flex items-center"><span className="w-4 h-4 rounded-full bg-gray-200 mr-1"></span> 零負荷 (休)</div>
+                        <div className="flex items-center"><span className="w-4 h-4 rounded-full bg-blue-200/50 mr-1"></span> 極低負荷 (低)</div>
+                        <div className="flex items-center"><span className="w-4 h-4 rounded-full bg-blue-400 mr-1"></span> 中等負荷 (中)</div>
+                        <div className="flex items-center"><span className="w-4 h-4 rounded-full bg-blue-600 mr-1"></span> 高負荷 (高)</div>
+                        <div className="flex items-center ml-4 text-gray-500 font-normal">虛線區塊代表 4 週週期 (Mesocycle) 邊界</div>
                     </div>
                 </div>
-            `;
-        });
-    }
+            );
+        };
 
-    function openStudentDetail(id) {
-        const stu = students.find(s => s.id === id);
-        document.getElementById('p-name').innerText = stu.name;
-        document.getElementById('p-goal').innerText = stu.goal;
-        // Metrics update...
-        
-        // 模擬日曆
-        const calContainer = document.getElementById('calendar-days');
-        calContainer.innerHTML = '';
-        // 補前空位
-        for(let i=0; i<2; i++) calContainer.innerHTML += `<div></div>`;
-        
-        for(let i=1; i<=30; i++) {
-            const hasWorkout = [3, 5, 7, 20].includes(i); // 假裝有課的日子
-            const dot = hasWorkout ? `<span class="workout-dot">下肢蹲</span>` : '';
-            calContainer.innerHTML += `
-                <div class="cal-day" onclick="openEditor()">
-                    <div>${i}</div>
-                    ${dot}
+
+        // --- Main App ---
+
+        const App = () => {
+            const [allWeeksSchedule, setAllWeeksSchedule] = useState(() => {
+                const initialSchedule = new Array(TOTAL_WEEKS).fill(null).map(() => {
+                    const week = {};
+                    DAYS.forEach((_, i) => week[i] = []);
+                    return week;
+                });
+                return initialSchedule;
+            });
+            
+            // `viewStartIndex` tracks the first week of the current view (W=1, M=1, Q=1, Y=1)
+            const [viewStartIndex, setViewStartIndex] = useState(0); 
+            const [viewMode, setViewMode] = useState('WEEK');
+
+            const [draggedItem, setDraggedItem] = useState(null);
+            const [editingModule, setEditingModule] = useState(null);
+            const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+            const [isGenerating, setIsGenerating] = useState(false); // State for PDF generation
+
+            // Get current view mode configuration
+            const currentMode = VIEW_MODES.find(m => m.id === viewMode);
+            const step = currentMode.step;
+            const currentWeekIndex = viewMode === 'WEEK' ? viewStartIndex : 
+                                     viewMode === 'MONTH' ? viewStartIndex : 
+                                     viewStartIndex; 
+
+            // Derived State for Current Week 
+            const currentWeekSchedule = allWeeksSchedule[currentWeekIndex];
+
+            // --- Navigation Handlers ---
+            const navigate = (direction) => {
+                const newIndex = viewStartIndex + direction * step;
+                if (newIndex >= 0 && newIndex < TOTAL_WEEKS) {
+                    setViewStartIndex(newIndex);
+                } else if (newIndex >= TOTAL_WEEKS) {
+                    setViewStartIndex(TOTAL_WEEKS - step); // Cap at the last possible start
+                } else if (newIndex < 0) {
+                    setViewStartIndex(0); // Cap at the first possible start
+                }
+            };
+
+            const goToPrevious = () => navigate(-1);
+            const goToNext = () => navigate(1);
+
+            // --- Drag & Drop Handlers (Only enabled in WEEK view) ---
+            const handleDragStart = (e, module) => {
+                if (viewMode === 'WEEK') {
+                    setDraggedItem(module);
+                    e.dataTransfer.effectAllowed = "copy";
+                } else {
+                    e.preventDefault();
+                }
+            };
+
+            const handleDragOver = (e) => {
+                if (viewMode === 'WEEK') {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "copy";
+                    e.currentTarget.classList.add('drag-over');
+                }
+            };
+
+            const handleDragLeave = (e) => {
+                if (viewMode === 'WEEK') {
+                    e.currentTarget.classList.remove('drag-over');
+                }
+            };
+
+            const handleDrop = (e, dayIndex) => {
+                if (viewMode === 'WEEK') {
+                    e.preventDefault();
+                    e.currentTarget.classList.remove('drag-over');
+                    
+                    if (draggedItem) {
+                        const newModule = {
+                            ...draggedItem,
+                            instanceId: Date.now() + Math.random(), // Unique ID for this instance
+                        };
+                        
+                        setAllWeeksSchedule(prev => {
+                            const newWeeks = [...prev];
+                            // Copy and update the current week's schedule for the specific day
+                            const currentWeek = { ...newWeeks[currentWeekIndex] };
+                            currentWeek[dayIndex] = [...currentWeek[dayIndex], newModule];
+                            newWeeks[currentWeekIndex] = currentWeek;
+                            return newWeeks;
+                        });
+                    }
+                    setDraggedItem(null);
+                }
+            };
+
+            // --- Module Actions ---
+            const deleteModule = (dayIndex, moduleIndex) => {
+                setAllWeeksSchedule(prev => {
+                    const newWeeks = [...prev];
+                    const currentWeek = { ...newWeeks[currentWeekIndex] };
+                    const newDayModules = [...currentWeek[dayIndex]];
+                    newDayModules.splice(moduleIndex, 1);
+                    currentWeek[dayIndex] = newDayModules;
+                    newWeeks[currentWeekIndex] = currentWeek;
+                    return newWeeks;
+                });
+            };
+
+            const openEditModal = (dayIndex, moduleIndex, module) => {
+                setEditingModule({ 
+                    weekIndex: currentWeekIndex, 
+                    dayIndex, 
+                    moduleIndex, 
+                    ...module 
+                });
+                setIsEditModalOpen(true);
+            };
+
+            const saveModuleChanges = (updatedModule) => {
+                setAllWeeksSchedule(prev => {
+                    const newWeeks = [...prev];
+                    const currentWeek = { ...newWeeks[editingModule.weekIndex] };
+                    const newDay = [...currentWeek[editingModule.dayIndex]];
+                    newDay[editingModule.moduleIndex] = updatedModule;
+                    currentWeek[editingModule.dayIndex] = newDay;
+                    newWeeks[editingModule.weekIndex] = currentWeek;
+                    return newWeeks;
+                });
+                setIsEditModalOpen(false);
+                setEditingModule(null);
+            };
+
+            const clearSchedule = (scope) => {
+                if(scope === 'WEEK' && confirm(`確定要清空第 ${currentWeekIndex + 1} 週的課表嗎？`)) {
+                    setAllWeeksSchedule(prev => {
+                        const newWeeks = [...prev];
+                        const resetWeek = {};
+                        DAYS.forEach((_, i) => resetWeek[i] = []);
+                        newWeeks[currentWeekIndex] = resetWeek;
+                        return newWeeks;
+                    });
+                } else if (scope === 'YEAR' && confirm('確定要清空**整年度 (52 週)** 的課表嗎？此動作無法復原！')) {
+                    const initialSchedule = new Array(TOTAL_WEEKS).fill(null).map(() => {
+                        const week = {};
+                        DAYS.forEach((_, i) => week[i] = []);
+                        return week;
+                    });
+                    setAllWeeksSchedule(initialSchedule);
+                    setViewStartIndex(0);
+                }
+            };
+
+            // --- PDF Generation Handler (New Feature) ---
+            const generatePdfReport = async () => {
+                if (isGenerating) return;
+
+                setIsGenerating(true);
+                // Target the hidden div that contains the YearView structure
+                const element = document.getElementById('report-content-to-capture');
+                
+                try {
+                    // 1. Capture the HTML content as a canvas image
+                    const canvas = await html2canvas(element, { 
+                        scale: 2, // Improve quality
+                        logging: false,
+                        windowWidth: 1000, 
+                        useCORS: true,
+                        backgroundColor: '#ffffff' // Ensure white background
+                    });
+
+                    const imgData = canvas.toDataURL('image/png');
+                    const { jsPDF } = window.jspdf;
+                    const pdf = new jsPDF('l', 'mm', 'a4'); // Landscape A4 (297x210 mm)
+
+                    // Dimensions for PDF
+                    const pdfWidth = 280; // slightly less than A4 width
+                    const pdfHeight = 195; // slightly less than A4 height
+                    const imgWidth = pdfWidth; 
+                    const imgHeight = canvas.height * imgWidth / canvas.width;
+                    let heightLeft = imgHeight;
+                    let position = 10; // Initial Y position
+
+                    // Add Header
+                    pdf.setFont('helvetica', 'bold');
+                    pdf.setFontSize(16);
+                    pdf.text('年度訓練週期化報表 (52 週)', 10, 10);
+                    pdf.setFont('helvetica', 'normal');
+                    pdf.setFontSize(10);
+                    pdf.text(`產生日期: ${new Date().toLocaleDateString('zh-TW')}`, 10, 16);
+                    pdf.line(10, 18, 287, 18); // Separator line
+                    position = 20;
+
+                    // 2. Add image to PDF, handling multiple pages
+                    
+                    if (imgHeight < pdfHeight) {
+                         // Single page
+                        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+                    } else {
+                        // Multi-page handling
+                        let pageCount = 0;
+                        while (heightLeft > 0) {
+                            if (pageCount > 0) {
+                                pdf.addPage();
+                            }
+                            // Calculate where to crop the image for the current page
+                            const yPosition = - (imgHeight - heightLeft); 
+                            
+                            pdf.addImage(imgData, 'PNG', 10, yPosition + position, imgWidth, imgHeight);
+                            
+                            heightLeft -= pdfHeight;
+                            pageCount++;
+                        }
+                    }
+
+                    // 3. Save the PDF
+                    pdf.save('年度訓練週期化報表.pdf');
+
+                } catch (error) {
+                    console.error("PDF 產生失敗:", error);
+                    alert('PDF 報告產生失敗。請檢查控制台錯誤訊息。');
+                } finally {
+                    setIsGenerating(false);
+                }
+            };
+            
+            // --- Calculation for Charts (WEEK view analysis) ---
+            const chartData = useMemo(() => {
+                return DAYS.map((dayName, index) => {
+                    const modules = allWeeksSchedule[currentWeekIndex]?.[index] || [];
+                    const totalLoad = modules.reduce((acc, m) => acc + calculateLoad(m), 0);
+                    return {
+                        name: dayName,
+                        load: Math.round(totalLoad),
+                        modules: modules.length
+                    };
+                });
+            }, [allWeeksSchedule, currentWeekIndex]);
+
+            const totalWeeklyLoad = chartData.reduce((acc, d) => acc + d.load, 0);
+
+            // --- Render Logic ---
+            const renderView = () => {
+                switch (viewMode) {
+                    case 'WEEK':
+                        return <WeekView 
+                            currentWeekSchedule={currentWeekSchedule}
+                            chartData={chartData}
+                            handleDragOver={handleDragOver}
+                            handleDragLeave={handleDragLeave}
+                            handleDrop={handleDrop}
+                            openEditModal={openEditModal}
+                            deleteModule={deleteModule}
+                        />;
+                    case 'MONTH':
+                        return <MonthView allWeeksSchedule={allWeeksSchedule} viewStartIndex={viewStartIndex} />;
+                    case 'QUARTER':
+                        return <QuarterView allWeeksSchedule={allWeeksSchedule} viewStartIndex={viewStartIndex} />;
+                    case 'YEAR':
+                        return <YearView allWeeksSchedule={allWeeksSchedule} />;
+                    default:
+                        return null;
+                }
+            };
+            
+            // Determine the range label for the navigation header
+            const startDisplay = viewStartIndex + 1;
+            let endDisplay = viewStartIndex + step;
+            if (viewMode === 'YEAR') {
+                endDisplay = TOTAL_WEEKS;
+            } else {
+                endDisplay = Math.min(endDisplay, TOTAL_WEEKS);
+            }
+
+            const headerRange = viewMode === 'YEAR' ? '1 - 52' : `${startDisplay} - ${endDisplay}`;
+
+
+            // Determine if navigation buttons should be disabled
+            const isPrevDisabled = viewStartIndex === 0 || viewMode === 'YEAR';
+            const isNextDisabled = viewStartIndex + step >= TOTAL_WEEKS || viewMode === 'YEAR';
+
+            return (
+                <div className="flex h-screen overflow-hidden">
+                    {/* Sidebar */}
+                    <div className="w-64 bg-white border-r border-gray-200 flex flex-col z-10 shadow-lg">
+                        <div className="p-5 border-b border-gray-100 bg-gray-50">
+                            <h1 className="text-xl font-extrabold text-gray-800 tracking-tight">
+                                <span className="text-blue-600">週期化</span>實驗室
+                            </h1>
+                            <p className="text-xs text-gray-500 mt-1">拖曳模組至右側課表</p>
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto p-4">
+                            <h2 className="text-xs font-bold text-gray-400 uppercase mb-3 tracking-wider">模組庫</h2>
+                            {INITIAL_MODULES.map(module => (
+                                <DraggableModule 
+                                    key={module.id} 
+                                    module={module} 
+                                    onDragStart={handleDragStart} 
+                                />
+                            ))}
+
+                            <div className="mt-8 bg-blue-50 p-3 rounded-lg border border-blue-100">
+                                <h3 className="text-sm font-bold text-blue-800 mb-1 flex items-center gap-1"><Icons.Clock /> 注意事項</h3>
+                                <p className="text-xs text-blue-600 leading-relaxed">
+                                    只有在 **週視圖 (WEEK)** 下，才能拖曳、編輯和刪除訓練模組。
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div className="p-4 border-t border-gray-200 space-y-2">
+                            <button 
+                                onClick={() => generatePdfReport()}
+                                disabled={isGenerating}
+                                className={`w-full py-2 px-4 text-sm font-bold rounded transition-colors flex items-center justify-center gap-2 ${isGenerating ? 'bg-blue-400 text-white cursor-wait' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                            >
+                                {isGenerating ? '報告產生中...' : <><Icons.FileText /> 輸出 PDF 報告</>}
+                            </button>
+                            <button 
+                                onClick={() => clearSchedule('WEEK')}
+                                disabled={viewMode !== 'WEEK'}
+                                className={`w-full py-2 px-4 text-sm font-bold rounded transition-colors flex items-center justify-center gap-2 ${viewMode === 'WEEK' ? 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                            >
+                                <Icons.Trash /> 清空當前 {currentMode.name}
+                            </button>
+                            <button 
+                                onClick={() => clearSchedule('YEAR')}
+                                className="w-full py-2 px-4 bg-gray-100 text-gray-600 text-sm font-bold rounded hover:bg-red-50 hover:text-red-600 transition-colors flex items-center justify-center gap-2"
+                            >
+                                <Icons.Trash /> 清空年度計畫
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Main Content */}
+                    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-gray-50/50">
+                        
+                        {/* Periodization Navigation Header */}
+                        <div className="bg-white border-b border-gray-200 p-4 flex items-center justify-between shrink-0 shadow-sm">
+                            
+                            {/* View Mode Selector */}
+                            <div className="flex items-center space-x-2 p-1 bg-gray-100 rounded-lg">
+                                {VIEW_MODES.map(mode => (
+                                    <button
+                                        key={mode.id}
+                                        onClick={() => setViewMode(mode.id)}
+                                        className={`px-3 py-1.5 text-sm font-semibold rounded-md transition-all ${
+                                            viewMode === mode.id 
+                                            ? 'bg-blue-600 text-white shadow-md' 
+                                            : 'text-gray-600 hover:bg-gray-200'
+                                        }`}
+                                    >
+                                        {mode.name.split(' ')[0]}
+                                    </button>
+                                ))}
+                            </div>
+
+
+                            {/* Navigation and Range Display */}
+                            <div className="flex items-center space-x-3 bg-gray-100 p-2 rounded-lg border">
+                                <button 
+                                    onClick={goToPrevious} 
+                                    disabled={isPrevDisabled}
+                                    className="p-1 rounded-full text-gray-600 hover:bg-gray-200 disabled:opacity-30 transition-colors"
+                                ><Icons.ChevronLeft /></button>
+                                <div className="text-center w-40">
+                                    <p className="text-xs text-gray-500 font-bold uppercase">{currentMode.name} 範圍</p>
+                                    <p className="text-xl font-extrabold text-blue-600">
+                                        {currentMode.label}{headerRange}
+                                    </p>
+                                </div>
+                                <button 
+                                    onClick={goToNext} 
+                                    disabled={isNextDisabled}
+                                    className="p-1 rounded-full text-gray-600 hover:bg-gray-200 disabled:opacity-30 transition-colors"
+                                ><Icons.ChevronRight /></button>
+                            </div>
+                        </div>
+
+
+                        {/* Content Area - Renders selected view */}
+                        <div className="flex-1 overflow-x-auto overflow-y-auto p-6">
+                            {renderView()}
+                        </div>
+
+                        {/* Analytics Panel (Only visible in WEEK mode) */}
+                        {viewMode === 'WEEK' && (
+                            <div className="h-64 bg-white border-t border-gray-200 p-6 flex gap-8 shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
+                                {/* Microcycle Load Chart (Current Week) */}
+                                <div className="flex-1 min-w-[300px]">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h3 className="font-bold text-gray-700 flex items-center gap-2">
+                                            <Icons.Activity /> 本週負荷趨勢 (W{currentWeekIndex + 1})
+                                        </h3>
+                                    </div>
+                                    <div className="h-40 w-full">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb"/>
+                                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 12}} dy={10} />
+                                                <YAxis axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 12}} />
+                                                <Tooltip 
+                                                    contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'}}
+                                                    formatter={(value) => [value, '負荷指數']}
+                                                />
+                                                <Line 
+                                                    type="monotone" 
+                                                    dataKey="load" 
+                                                    stroke="#3b82f6" 
+                                                    strokeWidth={3}
+                                                    dot={{r: 4, fill: '#3b82f6', strokeWidth: 2, stroke: '#fff'}}
+                                                    activeDot={{r: 6}} 
+                                                />
+                                            </LineChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+
+                                {/* Key Stats */}
+                                <div className="w-56 border-l pl-8 border-gray-100 flex flex-col justify-center space-y-3">
+                                    <div>
+                                        <p className="text-xs text-gray-400 uppercase font-bold">每週總負荷 (W{currentWeekIndex + 1})</p>
+                                        <p className="text-2xl font-extrabold text-gray-800">{Math.round(totalWeeklyLoad)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-400 uppercase font-bold">訓練日數</p>
+                                        <p className="text-2xl font-extrabold text-gray-800">
+                                            {chartData.filter(d => d.modules > 0).length} <span className="text-sm text-gray-400 font-normal">/ 7</span>
+                                        </p>
+                                    </div>
+                                </div>
+
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Hidden div for PDF capture (Renders the YearView structure) */}
+                    <div id="report-content-to-capture" className="absolute -left-[9999px] w-[1000px] p-6 bg-white">
+                        <YearView allWeeksSchedule={allWeeksSchedule} />
+                    </div>
+
+                    {/* Modals */}
+                    <EditModal 
+                        isOpen={isEditModalOpen} 
+                        onClose={() => setIsEditModalOpen(false)} 
+                        module={editingModule}
+                        onSave={saveModuleChanges}
+                    />
                 </div>
-            `;
-        }
+            );
+        };
 
-        navTo('student-detail');
-    }
-
-    // 編輯器
-    function openEditor() {
-        document.getElementById('workout-editor').classList.add('open');
-    }
-    function closeEditor() {
-        document.getElementById('workout-editor').classList.remove('open');
-    }
-
-</script>
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
 </body>
 </html>
