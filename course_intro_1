@@ -43,7 +43,7 @@
             <div class="flex justify-between h-16 items-center">
                 <div class="flex items-center">
                     <i class="fa-solid fa-dumbbell text-blue-600 text-2xl mr-2"></i>
-                    <span class="font-bold text-xl text-gray-900 tracking-tight">ProTrainer 模組化訓練</span>
+                    <span class="font-bold text-xl text-gray-900 tracking-tight">模組化訓練課表設計</span>
                 </div>
                 <div class="hidden md:flex space-x-8">
                     <a href="#vision" class="text-gray-600 hover:text-blue-600 font-medium">課程重點</a>
@@ -280,7 +280,7 @@
 
     <!-- Footer -->
     <footer class="bg-gray-950 text-gray-400 py-8 text-center border-t border-gray-800">
-        <p>&copy; 2024 ProTrainer Academy. All Rights Reserved.</p>
+        <p>&copy; 運釀股份有限公司 Vintexercise. All Rights Reserved.</p>
     </footer>
 
 </body>
