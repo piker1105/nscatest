@@ -46,7 +46,7 @@
                     <span class="font-bold text-xl text-gray-900 tracking-tight">ProTrainer 模組化訓練</span>
                 </div>
                 <div class="hidden md:flex space-x-8">
-                    <a href="#vision" class="text-gray-600 hover:text-blue-600 font-medium">核心願景</a>
+                    <a href="#vision" class="text-gray-600 hover:text-blue-600 font-medium">課程重點</a>
                     <a href="#module1" class="text-gray-600 hover:text-blue-600 font-medium">基礎模組</a>
                     <a href="#module2" class="text-gray-600 hover:text-blue-600 font-medium">實戰模組</a>
                     <a href="#module3" class="text-gray-600 hover:text-blue-600 font-medium">進階模組</a>
