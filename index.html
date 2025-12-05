@@ -3,320 +3,357 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NSCA模擬測驗系統 by Hoho</title>
+    <title>2026 教練專業進化：跨領域必修學分</title>
+    <!-- 載入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        :root {
-            --primary: #2563eb;
-            --success: #22c55e;
-            --danger: #ef4444;
-            --bg: #f8fafc;
-            --card: #ffffff;
+        /* 使用 Inter 字體 */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb; /* 淺灰背景 */
         }
-        body { font-family: 'Microsoft JhengHei', 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #333; }
-        .container { max-width: 800px; margin: 0 auto; background: var(--card); padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-        
-        h1 { text-align: center; color: var(--primary); margin-bottom: 10px; }
-        .subtitle { text-align: center; color: #666; margin-bottom: 30px; font-size: 0.9em; }
-        
-        button { background: var(--primary); color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 16px; width: 100%; transition: 0.2s; }
-        button:hover { opacity: 0.9; }
-        
-        /* 選項按鈕樣式 */
-        button.option-btn { background: #f1f5f9; color: #333; margin-bottom: 10px; text-align: left; border: 2px solid transparent; position: relative; }
-        button.option-btn:hover { background: #e2e8f0; }
-        button.selected { border-color: var(--primary); background: #e0f2fe; font-weight: bold; }
-        
-        /* 測驗介面 */
-        .hidden { display: none; }
-        .header-bar { display: flex; justify-content: space-between; margin-bottom: 20px; font-weight: bold; color: #64748b; }
-        
-        /* 結果頁面 */
-        .score-card { text-align: center; padding: 30px; background: #f0f9ff; border-radius: 8px; margin-bottom: 30px; }
-        .score-text { font-size: 3em; font-weight: bold; color: var(--primary); margin: 10px 0; }
-        
-        /* 分析條 */
-        .category-row { display: flex; align-items: center; margin-bottom: 12px; }
-        .cat-name { width: 120px; font-weight: bold; font-size: 0.9em; }
-        .progress-track { flex-grow: 1; height: 12px; background: #eee; border-radius: 6px; overflow: hidden; margin: 0 10px; }
-        .progress-fill { height: 100%; transition: width 0.8s ease-out; }
-        .cat-percent { width: 40px; text-align: right; font-size: 0.9em; color: #666; }
-
-        /* 錯題檢討 */
-        .review-item { background: #fff5f5; border-left: 4px solid var(--danger); padding: 15px; margin-bottom: 15px; border-radius: 4px; }
-        .question-text { font-size: 1.1em; font-weight: bold; margin-bottom: 10px; line-height: 1.5; }
-        .user-wrong { color: var(--danger); margin-bottom: 5px; }
-        .correct-ans { color: var(--success); font-weight: bold; margin-bottom: 8px; }
-        .explanation { font-size: 0.9em; color: #555; background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #eee; line-height: 1.6; }
-        .badge { display: inline-block; background: #e2e8f0; padding: 2px 8px; border-radius: 4px; font-size: 0.75em; color: #475569; margin-bottom: 8px; }
+        /* 策展卡片樣式 - 提高陰影和細節 */
+        .course-card {
+            transition: transform 0.3s, box-shadow 0.3s;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05); /* 輕微陰影 */
+        }
+        .course-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 25px rgba(0, 0, 0, 0.15); /* 更有衝擊力的陰影 */
+        }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div id="start-screen">
-        <h1>NSCA CPT/CSCS 模擬測驗</h1>
-        <p class="subtitle">基於您上傳的考古題庫 (Hohotest)</p>
-        <div style="text-align: center; margin: 40px 0;">
-            <p>📝 題目範圍：運動科學、營養學</p>
-            <p>⏱️ 測驗時間：不限時</p>
-        </div>
-        <button onclick="startQuiz()">開始測驗</button>
-    </div>
-
-    <div id="quiz-screen" class="hidden">
-        <div class="header-bar">
-            <span id="question-counter">Q 1</span>
-            <span id="timer">00:00</span>
-        </div>
-        <div id="question-container">
-            <div class="badge" id="q-category">分類</div>
-            <div class="question-text" id="q-text">題目載入中...</div>
-            <div id="options-container"></div>
-        </div>
-        <div style="margin-top: 30px; text-align: right;">
-            <button onclick="nextQuestion()" id="next-btn" style="width: auto; padding: 10px 30px;" disabled>下一題</button>
-        </div>
-    </div>
-
-    <div id="result-screen" class="hidden">
-        <h1>測驗成績單</h1>
-        <div class="score-card">
-            <div>您的得分</div>
-            <div class="score-text" id="final-score">0</div>
-            <div id="score-msg"></div>
-        </div>
-
-        <h3>📊 強弱項分析</h3>
-        <div id="analysis-container" style="margin-bottom: 30px;"></div>
-
-        <h3>📝 錯題檢討與詳解</h3>
-        <div id="review-container"></div>
-        
-        <button onclick="location.reload()" style="margin-top: 30px;">再次測驗</button>
-    </div>
-</div>
-
-<script>
-    // =================================================
-    // 題目資料庫 (已從您上傳的PDF中提取並轉為繁體)
-    // =================================================
-    const questions = [
-        {
-            category: "運動科學 (肌肉生理)",
-            question: "在低槓深蹲訓練中，以下哪塊肌肉和臀大肌互為拮抗肌？",
-            options: ["股四頭肌", "膕旁肌 (Hamstrings)", "腰大肌 (Psoas Major)"],
-            correct: 2,
-            explanation: "臀大肌的主要功能是「髖關節伸展」。因此，它的拮抗肌必須是負責「髖關節屈曲」的肌肉。選項中，腰大肌是主要的髖屈肌。"
-        },
-        {
-            category: "運動科學 (生物力學)",
-            question: "以下哪個選項中的肌肉和收縮形式在二頭肌彎舉訓練的啞鈴「下降過程中」被用到？",
-            options: ["伸肘肌群離心收縮", "屈肘肌群離心收縮", "屈肘肌群向心收縮"],
-            correct: 1,
-            explanation: "在啞鈴下降（伸肘）的過程中，原本收縮的屈肘肌群（肱二頭肌等）被拉長，這屬於「離心收縮」以控制重力。"
-        },
-        {
-            category: "運動科學 (訓練法)",
-            question: "以下哪一組間歇時長最適合進行 2 分鐘 800 米間歇跑訓練？",
-            options: ["2分鐘", "4分鐘", "6分鐘"],
-            correct: 2,
-            explanation: "2分鐘的高強度運動主要依賴糖酵解系統。為了讓該系統充分恢復，建議的訓練:休息比例通常為 1:3 至 1:4。因此 2分鐘 x 3 = 6分鐘的休息最為合適。"
-        },
-        {
-            category: "運動科學 (性別差異)",
-            question: "相比於男性，女性肌纖維「橫截面」力量的提升潛力為何？",
-            options: ["低於男性", "與男性接近", "比男性更高"],
-            correct: 1,
-            explanation: "雖然男性的肌肉總量通常較大，但若比較「單位橫截面積」的肌肉力量（Muscle Quality），男女的肌肉組織產生力量的能力是相似的。"
-        },
-        {
-            category: "運動科學 (心肺適應)",
-            question: "對有氧訓練者來說，以下哪項心血管方面的改變對提升有氧運動的耐久性最有幫助？",
-            options: ["最大心輸出量增加", "休息時血壓下降", "休息時心率下降"],
-            correct: 0,
-            explanation: "最大攝氧量 (VO2max) 的提升主要受限於心臟輸送血液的能力。因此，「最大心輸出量 (Max Cardiac Output)」的增加是提升有氧表現最關鍵的適應。"
-        },
-        {
-            category: "運動科學 (肌肉生理)",
-            question: "在進行腿舉 (Leg Press) 訓練時，膕旁肌的向心收縮會導致肌小節結構發生什麼變化？",
-            options: ["A帶長度變長", "I帶長度不變", "H區長度變短"],
-            correct: 2,
-            explanation: "根據肌絲滑動理論，肌肉收縮時，肌動蛋白向肌球蛋白中心滑動，導致 H區（僅有粗肌絲區域）和 I帶變短，但 A帶（粗肌絲長度）保持不變。"
-        },
-        {
-            category: "運動營養 (能量代謝)",
-            question: "以下哪種供能物質的消耗，最直接影響馬拉松運動員的水平表現？",
-            options: ["肌糖原", "甘油三酯", "磷酸肌酸"],
-            correct: 0,
-            explanation: "雖然馬拉松依賴脂肪供能，但「肌糖原 (Muscle Glycogen)」的耗盡（撞牆期）是限制高強度耐力表現的主要因素。"
-        },
-        {
-            category: "運動心理",
-            question: "以下哪個環境對激發運動員取得更高成就的動機最有幫助？",
-            options: ["低水平對抗的環境，勝利唾手可得", "充滿挑戰的對抗環境，勝利需要拼搏但無法保證", "極端難度的對抗環境，勝利基本沒可能"],
-            correct: 1,
-            explanation: "成就動機理論指出，當成功機率約為 50%（充滿挑戰但有希望）時，運動員的動機最強。"
-        },
-        {
-            category: "運動科學 (肌纖維)",
-            question: "以下哪一項是 II 型（快縮）肌纖維的特點？",
-            options: ["收縮速度慢", "纖維直徑纖細", "力量輸出高"],
-            correct: 2,
-            explanation: "II 型肌纖維（快縮肌）的特點是：收縮速度快、力量輸出大、容易疲勞、橫截面積通常較大。"
-        },
-        {
-            category: "運動營養 (能量代謝)",
-            question: "以下哪項運動主要依靠磷酸肌酸 (ATP-CP) 系統供能？",
-            options: ["200米游泳", "3千米跑步", "5RM 推舉"],
-            correct: 2,
-            explanation: "ATP-CP 系統主要供應 0-10 秒的極高強度運動。5RM 的推舉（約重訓一組）主要由此系統供能。200米游泳和3千米跑則依賴糖酵解和有氧系統。"
-        }
-    ];
-    // =================================================
-
-    let currentQ = 0;
-    let score = 0;
-    let userAnswers = Array(questions.length).fill(null);
-    let timerInt;
-    let seconds = 0;
-
-    // 啟動測驗
-    function startQuiz() {
-        document.getElementById('start-screen').classList.add('hidden');
-        document.getElementById('quiz-screen').classList.remove('hidden');
-        loadQuestion(0);
-        
-        timerInt = setInterval(() => {
-            seconds++;
-            let m = Math.floor(seconds / 60).toString().padStart(2, '0');
-            let s = (seconds % 60).toString().padStart(2, '0');
-            document.getElementById('timer').innerText = `${m}:${s}`;
-        }, 1000);
-    }
-
-    // 載入題目
-    function loadQuestion(index) {
-        currentQ = index;
-        const q = questions[index];
-        
-        document.getElementById('question-counter').innerText = `題目 ${index + 1} / ${questions.length}`;
-        document.getElementById('q-category').innerText = q.category;
-        document.getElementById('q-text').innerText = q.question;
-        
-        const container = document.getElementById('options-container');
-        container.innerHTML = '';
-        
-        q.options.forEach((opt, i) => {
-            const btn = document.createElement('button');
-            btn.className = 'option-btn';
-            btn.innerHTML = `<span style="font-weight:bold; margin-right:10px;">${String.fromCharCode(65+i)}.</span> ${opt}`;
-            btn.onclick = () => selectAnswer(i, btn);
-            
-            // 如果之前答過，恢復狀態
-            if (userAnswers[index] === i) btn.classList.add('selected');
-            
-            container.appendChild(btn);
-        });
-
-        // 按鈕狀態
-        const nextBtn = document.getElementById('next-btn');
-        nextBtn.disabled = userAnswers[index] === null;
-        nextBtn.style.opacity = userAnswers[index] === null ? 0.5 : 1;
-        nextBtn.innerText = (index === questions.length - 1) ? "提交試卷" : "下一題";
-    }
-
-    // 選擇答案
-    function selectAnswer(optionIndex, btnElement) {
-        const allBtns = document.querySelectorAll('.option-btn');
-        allBtns.forEach(b => b.classList.remove('selected'));
-        btnElement.classList.add('selected');
-        
-        userAnswers[currentQ] = optionIndex;
-        
-        const nextBtn = document.getElementById('next-btn');
-        nextBtn.disabled = false;
-        nextBtn.style.opacity = 1;
-    }
-
-    // 下一題或結算
-    function nextQuestion() {
-        if (currentQ < questions.length - 1) {
-            loadQuestion(currentQ + 1);
-        } else {
-            finishQuiz();
-        }
-    }
-
-    // 結算成績
-    function finishQuiz() {
-        clearInterval(timerInt);
-        document.getElementById('quiz-screen').classList.add('hidden');
-        document.getElementById('result-screen').classList.remove('hidden');
-
-        let correctCount = 0;
-        let catStats = {}; // { 'CategoryName': {total:0, correct:0} }
-
-        questions.forEach((q, i) => {
-            const isRight = userAnswers[i] === q.correct;
-            if (isRight) correctCount++;
-            
-            // 分類統計
-            let cat = q.category.split(" ")[0]; // 取主分類
-            if (!catStats[cat]) catStats[cat] = {total:0, correct:0};
-            catStats[cat].total++;
-            if (isRight) catStats[cat].correct++;
-        });
-
-        // 1. 總分顯示
-        const finalScore = Math.round((correctCount / questions.length) * 100);
-        document.getElementById('final-score').innerText = finalScore;
-        document.getElementById('score-msg').innerText = finalScore >= 70 ? "太棒了！通過測驗標準 🎉" : "加油！建議複習錯題後再挑戰 💪";
-        document.getElementById('score-msg').style.color = finalScore >= 70 ? "var(--success)" : "var(--danger)";
-
-        // 2. 分析條渲染
-        const analysisHTML = Object.keys(catStats).map(cat => {
-            const stat = catStats[cat];
-            const pct = Math.round((stat.correct / stat.total) * 100);
-            const color = pct < 60 ? '#ef4444' : (pct < 80 ? '#f59e0b' : '#22c55e');
-            
-            return `
-            <div class="category-row">
-                <div class="cat-name">${cat}</div>
-                <div class="progress-track">
-                    <div class="progress-fill" style="width: ${pct}%; background: ${color};"></div>
+    <!-- 頂部導覽列 (可固定) -->
+    <nav class="sticky top-0 z-50 bg-white shadow-xl">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <a href="#" class="flex-shrink-0 text-2xl font-extrabold text-teal-700 tracking-wider">
+                    運釀
+                </a>
+                <div class="hidden md:flex space-x-8">
+                    <a href="#themes" class="text-gray-600 hover:text-teal-600 transition duration-150 font-medium">課程主題</a>
+                    <a href="#coaches" class="text-gray-600 hover:text-teal-600 transition duration-150 font-medium">導師陣容</a>
+                    <a href="#pricing" class="text-xl font-extrabold text-teal-600 border-b-4 border-teal-600 pb-1">立即報名</a>
                 </div>
-                <div class="cat-percent">${pct}%</div>
-            </div>`;
-        }).join('');
-        document.getElementById('analysis-container').innerHTML = analysisHTML;
+                <!-- Mobile Menu Button (Hamburger) -->
+                <button class="md:hidden p-2 text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 rounded-lg" aria-expanded="false" aria-controls="mobile-menu" onclick="document.getElementById('mobile-menu').classList.toggle('hidden')">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+                </button>
+            </div>
+        </div>
+        <!-- Mobile Menu -->
+        <div class="hidden md:hidden absolute bg-white w-full shadow-lg" id="mobile-menu">
+            <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+                <a href="#themes" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50">課程主題</a>
+                <a href="#coaches" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50">導師陣容</a>
+                <a href="#pricing" class="block px-3 py-2 rounded-md text-base font-medium text-teal-600 bg-teal-50 hover:bg-teal-100">方案與報名</a>
+            </div>
+        </div>
+    </nav>
 
-        // 3. 錯題檢討渲染
-        const reviewContainer = document.getElementById('review-container');
-        reviewContainer.innerHTML = '';
+    <!-- 英雄區塊 (Hero Section) -->
+    <header class="bg-gray-900 text-white py-20 md:py-32 relative overflow-hidden">
+        <!-- 模擬背景圖形 (VintExercise 風格的線條/數據感) -->
+        <div class="absolute inset-0 bg-cover bg-center opacity-10" style="background-image: url('https://placehold.co/1920x1080/000000/FFFFFF/png?text=Strength+and+Conditioning+Data');"></div>
         
-        let hasWrong = false;
-        questions.forEach((q, i) => {
-            if (userAnswers[i] !== q.correct) {
-                hasWrong = true;
-                const userChoice = userAnswers[i] !== null ? String.fromCharCode(65 + userAnswers[i]) + ". " + q.options[userAnswers[i]] : "未作答";
-                const correctChoice = String.fromCharCode(65 + q.correct) + ". " + q.options[q.correct];
-                
-                reviewContainer.innerHTML += `
-                <div class="review-item">
-                    <div class="badge">${q.category}</div>
-                    <div class="question-text">${i + 1}. ${q.question}</div>
-                    <div class="user-wrong">❌ 您的回答：${userChoice}</div>
-                    <div class="correct-ans">✅ 正確答案：${correctChoice}</div>
-                    <div class="explanation"><strong>💡 解析：</strong>${q.explanation}</div>
-                </div>`;
-            }
-        });
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <div class="lg:w-3/4">
+                <p class="text-teal-400 text-lg font-semibold mb-3 tracking-widest">2026 教練必修學分</p>
+                <h1 class="text-5xl md:text-7xl font-extrabold leading-tight mb-6">
+                    教練專業<span class="text-teal-400">進化</span>
+                </h1>
+                <p class="text-xl md:text-2xl text-gray-300 mb-10">
+                    打破瓶頸，擴展技能樹。頂尖專業講師群，帶你打造實戰成長路徑
+                </p>
+                <a href="#pricing" class="inline-block px-10 py-4 text-lg font-bold text-gray-900 bg-teal-400 rounded-lg shadow-xl hover:bg-teal-300 transition duration-300 transform hover:scale-105">
+                    查看所有課程
+                </a>
+            </div>
+        </div>
+    </header>
 
-        if (!hasWrong) {
-            reviewContainer.innerHTML = `<div style="text-align:center; padding:20px; color:var(--success); font-weight:bold;">恭喜！全對！您已經完全掌握這些內容了！🎉</div>`;
-        }
-    }
-</script>
+    <!-- 核心價值區塊 (Why Curated) -->
+    <section class="py-16 md:py-24 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h2 class="text-3xl md:text-4xl font-extrabold text-gray-800 mb-12 border-b-4 border-teal-500 inline-block pb-1">此刻學習，將與未來專業共振</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-10 mt-10">
+                <!-- 卡片 1：專業深度 / 臨床力 -->
+                <div class="p-6 bg-gray-50 rounded-xl shadow-lg border border-gray-100">
+                    <div class="text-4xl text-teal-600 mb-4 font-bold">SKILL DEPTH</div>
+                    <h3 class="text-xl font-extrabold mb-3 text-gray-800">專業深度：解決複雜個案的「臨床力」</h3>
+                    <p class="text-gray-600">整合物理治療的診斷視角與體能訓練的實戰策略，從根本解決客戶的痛點與限制，建立獨特的教練價值。</p>
+                </div>
+                <!-- 卡片 2：數據驅動 / 超前部署 -->
+                <div class="p-6 bg-gray-50 rounded-xl shadow-lg border border-gray-100">
+                    <div class="text-4xl text-teal-600 mb-4 font-bold">FUTURE-PROOF</div>
+                    <h3 class="text-xl font-extrabold mb-3 text-gray-800">超前部署：數據驅動的進化路徑</h3>
+                    <p class="text-gray-600">告別經驗式訓練。導入 VBT、步態分析等科學工具，讓訓練效果可視、可量化，為您的專業提供無可辯辯的論證。</p>
+                </div>
+                <!-- 卡片 3：持續進修 / 知識生態 -->
+                <div class="p-6 bg-gray-50 rounded-xl shadow-lg border border-gray-100">
+                    <div class="text-4xl text-teal-600 mb-4 font-bold">CONTINUUM</div>
+                    <h3 class="text-xl font-extrabold mb-3 text-gray-800">持續進修：連結頂尖的知識生態</h3>
+                    <p class="text-gray-600">嚴選業界 CSCS/PT 頂尖講師，所有課程皆可認列 NSCA/ACE 續證學分，確保您的學習與國際專業標準同步共振。</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 主題課程分區 (Thematic Zones) -->
+    <section id="themes" class="py-16 md:py-24 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl font-extrabold text-gray-800 mb-4">主題策展：選擇您的成長路徑</h2>
+                <p class="text-xl text-gray-600">我們為不同階段的教練，規劃了三條專業發展路線。所有課程皆可認列 NSCA、ACE 續證學分。</p>
+            </div>
+
+            <!-- 策展 A：進階科學與表現優化 -->
+            <div class="mb-16 p-8 bg-white rounded-2xl shadow-xl">
+                <h3 class="text-3xl font-extrabold text-teal-700 mb-6 border-b-4 pb-2 border-teal-300">
+                    A. 運動表現：進階科學與表現優化
+                </h3>
+                <!-- 內容修改：新增換行 -->
+                <p class="text-lg text-gray-600 mb-8 font-medium leading-relaxed">
+                    <span class="font-bold text-gray-800">適合對象：</span>資深教練、想訓練運動表現者。
+                    <br>
+                    <span class="font-bold text-gray-800">目標：</span>用數據思維，將客戶訓練推向更高層次。
+                </p>
+                <!-- 調整為 3 欄網格 -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    
+                    <!-- 課程卡片 1 (VBT) -->
+                    <div class="course-card p-6 border border-gray-200 rounded-lg bg-white shadow-md">
+                        <span class="inline-block bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full mb-3">#VBT</span>
+                        <h4 class="text-xl font-extrabold text-gray-800 mb-2">VBT 速度即力量：數據化訓練應用</h4>
+                        <p class="text-gray-600 mb-4">深入了解速度依從性訓練 (VBT) 的原理，學習如何運用速度監測儀器，精準設計課表、監測訓練疲勞。</p>
+                        <p class="font-semibold text-sm">講師: <span class="text-teal-600">SPSC / Lala</span> (VBT 專項教練)</p>
+                    </div>
+
+                    <!-- 課程卡片 2 (課表安排設計) -->
+                    <div class="course-card p-6 border border-gray-200 rounded-lg bg-white shadow-md">
+                        <span class="inline-block bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full mb-3">#課表設計</span>
+                        <h4 class="text-xl font-extrabold text-gray-800 mb-2">模組化進退階課表設計</h4>
+                        <p class="text-gray-600 mb-4">動作安排是一門藝術，五大課表設計模組，用科學提升運動表現</p>
+                        <p class="font-semibold text-sm">講師: <span class="text-teal-600">林冠廷</span> (物理治療師 / CSCS)</p>
+                    </div>
+                    
+                    <!-- 課程卡片 3 (螺旋動力研習) -->
+                    <div class="course-card p-6 border border-gray-200 rounded-lg bg-white shadow-md">
+                        <span class="inline-block bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full mb-3">#動作模式</span>
+                        <h4 class="text-xl font-extrabold text-gray-800 mb-2">Lv.1 初階螺旋動力研習</h4>
+                        <p class="text-gray-600 mb-4">掌握身體的螺旋式運動軌跡，學習如何應用於功能性力量傳遞與核心控制，提升運動效能。</p>
+                        <p class="font-semibold text-sm">講師: <span class="text-teal-600">Leo</span> (雷管研究所創辦人)</p>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- 策展 B：精準矯正與動作修復 -->
+            <div class="mb-16 p-8 bg-white rounded-2xl shadow-xl">
+                <h3 class="text-3xl font-extrabold text-teal-700 mb-6 border-b-4 pb-2 border-teal-300">
+                    B. 矯正與恢復：精準矯正與動作修復
+                </h3>
+                <!-- 內容修改：新增換行 -->
+                <p class="text-lg text-gray-600 mb-8 font-medium leading-relaxed">
+                    <span class="font-bold text-gray-800">適合對象：</span>新手教練、想服務久坐族/有輕微疼痛客戶。
+                    <br>
+                    <span class="font-bold text-gray-800">目標：</span>學會識別並解決常見代償與姿勢問題。
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <!-- 課程卡片 3 (呼吸/體態) -->
+                    <div class="course-card p-6 border border-gray-200 rounded-lg bg-white shadow-md">
+                        <span class="inline-block bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full mb-3">#動作基石</span>
+                        <h4 class="text-xl font-extrabold text-gray-800 mb-2">呼吸與體態優化：物理治療師視角</h4>
+                        <p class="text-gray-600 mb-4">解析呼吸模式如何影響核心、脊椎與肩頸。從根源建立身體穩定度。</p>
+                        <p class="font-semibold text-sm">講師: <span class="text-teal-600">Larry</span> (物理治療師)</p>
+                    </div>
+                    <!-- 課程卡片 4 (功能性阻力) -->
+                    <div class="course-card p-6 border border-gray-200 rounded-lg bg-white shadow-md">
+                        <span class="inline-block bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full mb-3">#功能性</span>
+                        <h4 class="text-xl font-extrabold text-gray-800 mb-2">功能性阻力與矯正訓練實務</h4>
+                        <p class="text-gray-600 mb-4">學習將矯正性運動與功能性阻力訓練完美結合，設計高度客製化的訓練計畫。</p>
+                        <p class="font-semibold text-sm">講師: <span class="text-teal-600">史博比</span> (矯正專家)</p>
+                    </div>
+                    <!-- 課程卡片 5 (伸展/貼紮) -->
+                    <div class="course-card p-6 border border-gray-200 rounded-lg bg-white shadow-md">
+                        <span class="inline-block bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full mb-3">#恢復工具</span>
+                        <h4 class="text-xl font-extrabold text-gray-800 mb-2">肌筋膜伸展術</h4>
+                        <p class="text-gray-600 mb-4">掌握課前準備與課後恢復的進階工具，包含肌筋膜放鬆與運動貼紮，全方位提升客戶體驗與訓練安全。</p>
+                        <p class="font-semibold text-sm">講師: <span class="text-teal-600">陳昶綸</span> (器識訓練創辦人)</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 策展 C：特殊族群與市場藍海 - 已更新第三張卡片 -->
+            <div class="p-8 bg-white rounded-2xl shadow-xl">
+                <h3 class="text-3xl font-extrabold text-teal-700 mb-6 border-b-4 pb-2 border-teal-300">
+                    C. 特殊族群：銀髮族與孕婦
+                </h3>
+                <!-- 內容修改：新增換行 -->
+                <p class="text-lg text-gray-600 mb-8 font-medium leading-relaxed">
+                    <span class="font-bold text-gray-800">適合對象：</span>想開拓新客源、建立個人專業品牌者。
+                    <br>
+                    <span class="font-bold text-gray-800">目標：</span>掌握高齡與女性客群的專業知識，增加競爭力。
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <!-- 課程卡片 6 (銀髮族) -->
+                    <div class="course-card p-6 border border-gray-200 rounded-lg bg-white shadow-md">
+                        <span class="inline-block bg-yellow-100 text-yellow-700 text-xs font-semibold px-3 py-1 rounded-full mb-3">#銀髮市場</span>
+                        <h4 class="text-xl font-extrabold text-gray-800 mb-2">時光逆轉：高齡化銀髮族體能解方</h4>
+                        <p class="text-gray-600 mb-4">專注於防跌倒、生活功能性維持與骨質密度訓練，進入高價值客群市場。</p>
+                        <p class="font-semibold text-sm">講師: <span class="text-teal-600">Eddie / 黃品諺</span> (銀髮族訓練專家)</p>
+                    </div>
+                    <!-- 課程卡片 7 (孕產婦) -->
+                    <div class="course-card p-6 border border-gray-200 rounded-lg bg-white shadow-md">
+                        <span class="inline-block bg-yellow-100 text-yellow-700 text-xs font-semibold px-3 py-1 rounded-full mb-3">#女性專項</span>
+                        <h4 class="text-xl font-extrabold text-gray-800 mb-2">女性力量：孕產婦安全訓練與動作重啟</h4>
+                        <p class="text-gray-600 mb-4">了解孕產婦身體變化，提供安全且有效的產後核心重啟與體態恢復訓練。</p>
+                        <p class="font-semibold text-sm">講師: <span class="text-teal-600">Nikky</span> (孕產婦專家)</p>
+                    </div>
+                    <!-- 課程卡片 8 (傷後恢復) - 新增彭麗貞老師課程 -->
+                    <div class="course-card p-6 border border-gray-200 rounded-lg bg-white shadow-md">
+                        <span class="inline-block bg-yellow-100 text-yellow-700 text-xs font-semibold px-3 py-1 rounded-full mb-3">#回場機制</span>
+                        <h4 class="text-xl font-extrabold text-gray-800 mb-2">傷後恢復的回場機制</h4>
+                        <p class="text-gray-600 mb-4">掌握從復健到重返訓練場域的嚴謹評估與進階訓練流程，確保客戶安全且高效地回到運動狀態。</p>
+                        <p class="font-semibold text-sm">講師: <span class="text-teal-600">彭麗貞</span> (運動防護師)</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- 講師陣容區塊 (Coaches Roster) -->
+    <section id="coaches" class="py-16 md:py-24 bg-gray-900 text-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 class="text-4xl font-extrabold text-center text-teal-400 mb-12 border-b-4 border-teal-500 inline-block pb-1">策展導師陣容</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-8 mt-10">
+
+                <!-- 講師卡片 1：黃品諺 -->
+                <div class="text-center p-6 bg-gray-800 rounded-xl shadow-lg border border-gray-700">
+                    <img class="w-24 h-24 mx-auto rounded-full object-cover mb-4 border-4 border-teal-500" src="https://placehold.co/100x100/115e59/FFFFFF?text=黃品諺" alt="">
+                    <h3 class="text-xl font-extrabold mb-1">黃品諺</h3>
+                    <p class="text-sm text-teal-400 mb-2">物理治療師 / CSCS</p>
+                    <p class="text-xs text-gray-500">成大物治系。專長：臨床力量訓練、銀髮族訓練。</p>
+                </div>
+
+                <!-- 講師卡片 2：繡流 -->
+                <div class="text-center p-6 bg-gray-800 rounded-xl shadow-lg border border-gray-700">
+                    <img class="w-24 h-24 mx-auto rounded-full object-cover mb-4 border-4 border-teal-500" src="https://placehold.co/100x100/115e59/FFFFFF?text=繡流" alt="">
+                    <h3 class="text-xl font-extrabold mb-1">繡流 (Lala)</h3>
+                    <p class="text-sm text-teal-400 mb-2">專項體能教練 / VBT 專家</p>
+                    <p class="text-xs text-gray-500">專長：速度依從性訓練、競技體能數據化優化。</p>
+                </div>
+
+                <!-- 講師卡片 3：Larry -->
+                <div class="text-center p-6 bg-gray-800 rounded-xl shadow-lg border border-gray-700">
+                    <img class="w-24 h-24 mx-auto rounded-full object-cover mb-4 border-4 border-teal-500" src="https://placehold.co/100x100/115e59/FFFFFF?text=Larry" alt="">
+                    <h3 class="text-xl font-extrabold mb-1">Larry</h3>
+                    <p class="text-sm text-teal-400 mb-2">物理治療師</p>
+                    <p class="text-xs text-gray-500">專長：動作功能分析、呼吸與體態整合矯正。</p>
+                </div>
+
+                <!-- 講師卡片 4：Nikky -->
+                <div class="text-center p-6 bg-gray-800 rounded-xl shadow-lg border border-gray-700">
+                    <img class="w-24 h-24 mx-auto rounded-full object-cover mb-4 border-4 border-teal-500" src="https://placehold.co/100x100/115e59/FFFFFF?text=Nikky" alt="">
+                    <h3 class="text-xl font-extrabold mb-1">Nikky</h3>
+                    <p class="text-sm text-teal-400 mb-2">孕產婦健身專家</p>
+                    <p class="text-xs text-gray-500">專長：女性動作優化、產後核心功能重啟。</p>
+                </div>
+                
+                <!-- 講師卡片 5：Leo -->
+                <div class="text-center p-6 bg-gray-800 rounded-xl shadow-lg border border-gray-700">
+                    <img class="w-24 h-24 mx-auto rounded-full object-cover mb-4 border-4 border-teal-500" src="https://placehold.co/100x100/115e59/FFFFFF?text=Leo" alt="">
+                    <h3 class="text-xl font-extrabold mb-1">Leo</h3>
+                    <p class="text-sm text-teal-400 mb-2">雷管研究所創辦人</p>
+                    <p class="text-xs text-gray-500">專長：螺旋動力訓練、身體動作模式評估。</p>
+                </div>
+                
+                <!-- 講師卡片 6：彭麗貞 - 新增 -->
+                <div class="text-center p-6 bg-gray-800 rounded-xl shadow-lg border border-gray-700">
+                    <img class="w-24 h-24 mx-auto rounded-full object-cover mb-4 border-4 border-teal-500" src="https://placehold.co/100x100/115e59/FFFFFF?text=彭麗貞" alt="">
+                    <h3 class="text-xl font-extrabold mb-1">彭麗貞</h3>
+                    <p class="text-sm text-teal-400 mb-2">運動防護師</p>
+                    <p class="text-xs text-gray-500">專長：運動貼紮、傷後回場機制與訓練銜接。</p>
+                </div>
+                
+            </div>
+        </div>
+    </section>
+
+    <!-- 報名與方案區塊 (Pricing & CTA) -->
+    <section id="pricing" class="py-16 md:py-24 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h2 class="text-4xl font-extrabold text-gray-800 mb-4 border-b-4 border-teal-500 inline-block pb-1">選擇您的進化方案</h2>
+            <p class="text-xl text-gray-600 mb-16 mt-4">早鳥優惠倒數計時！限時折扣，系統性提升您的教練價值。</p>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                
+                <!-- 方案 1：單堂選修 -->
+                <div class="p-8 border-4 border-gray-100 rounded-xl shadow-lg course-card">
+                    <p class="text-lg font-semibold text-gray-500 mb-3">方案 1</p>
+                    <h3 class="text-3xl font-extrabold text-gray-800 mb-5">單堂選修</h3>
+                    <p class="text-4xl font-extrabold text-teal-600 mb-6">NT$ 3,800 <span class="text-xl text-gray-500 font-medium">/ 堂</span></p>
+                    <ul class="text-left text-gray-600 space-y-3 mb-8 text-sm">
+                        <li>✅ 自由選擇任一門課程</li>
+                        <li>✅ NSCA CEU 學分 (依課程時數)</li>
+                        <li class="line-through text-gray-400">無組合折扣</li>
+                        <li class="line-through text-gray-400">無教練群組問答權限</li>
+                    </ul>
+                    <a href="#" class="block w-full py-3 bg-gray-200 text-gray-700 font-extrabold rounded-lg hover:bg-gray-300 transition duration-150">
+                        選擇單堂
+                    </a>
+                </div>
+
+                <!-- 方案 2：專項專家套組 (推薦) -->
+                <div class="relative p-8 border-4 border-teal-500 rounded-xl shadow-2xl bg-teal-50 transform scale-105">
+                    <div class="absolute -top-4 right-0 bg-red-500 text-white text-sm font-bold px-4 py-1 rounded-bl-lg rounded-tr-xl">最受歡迎</div>
+                    <p class="text-lg font-semibold text-teal-600 mb-3">方案 2</p>
+                    <h3 class="text-3xl font-extrabold text-gray-800 mb-5">專項專家套組</h3>
+                    <p class="text-4xl font-extrabold text-red-500 line-through mb-1">NT$ 15,200</p>
+                    <p class="text-5xl font-extrabold text-teal-600 mb-6">NT$ 12,920 <span class="text-xl text-gray-500 font-medium">/ 4 堂</span></p>
+                    <p class="text-sm font-bold text-red-500 mb-4">(立享 85 折優惠)</p>
+                    <ul class="text-left text-gray-700 space-y-3 mb-8 text-sm">
+                        <li>✅ 任選一個主題展區 (A, B, 或 C) 的 **4 門** 課程</li>
+                        <li>✅ NSCA CEU 學分完整認證</li>
+                        <li>✅ 教練專屬 Line 群組問答權限 (3 個月)</li>
+                        <li class="line-through text-gray-500">不含所有課程</li>
+                    </ul>
+                    <a href="#" class="block w-full py-4 bg-teal-600 text-white font-extrabold rounded-lg hover:bg-teal-700 transition duration-150 transform hover:scale-[1.02]">
+                        立即搶購 (85 折)
+                    </a>
+                </div>
+
+                <!-- 方案 3：全能力進化大師包 -->
+                <div class="p-8 border-4 border-gray-100 rounded-xl shadow-lg course-card">
+                    <p class="text-lg font-semibold text-gray-500 mb-3">方案 3</p>
+                    <h3 class="text-3xl font-extrabold text-gray-800 mb-5">全能力進化大師包</h3>
+                    <p class="text-4xl font-extrabold text-teal-600 mb-6">價格請洽詢</p>
+                    <ul class="text-left text-gray-600 space-y-3 mb-8 text-sm">
+                        <li>✅ 策展內**所有課程**打包 (最高折扣 75 折)</li>
+                        <li>✅ NSCA 續證學分一次補齊</li>
+                        <li>✅ 教練專屬 Line 群組問答權限 (12 個月)</li>
+                        <li>✅ 贈送線上助教輔導時間 (2 小時)</li>
+                    </ul>
+                    <a href="#" class="block w-full py-3 bg-gray-200 text-gray-700 font-extrabold rounded-lg hover:bg-gray-300 transition duration-150">
+                        聯繫客服洽詢
+                    </a>
+                </div>
+
+            </div>
+        </div>
+    </section>
+    
+    <!-- 頁尾 -->
+    <footer class="bg-gray-900 text-white py-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <p class="mb-4 text-sm text-gray-400">© 2026 EVOLVE. 教練進化策展. All Rights Reserved. | 專業訓練，持續學習。</p>
+            <p class="text-xs text-gray-500">課程形式：線上直播與錄播回放。請確認您的報名資料，課程連結將於開課前三天寄出。</p>
+        </div>
+    </footer>
 
 </body>
 </html>
