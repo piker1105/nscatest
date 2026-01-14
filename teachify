@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>學員手動開課工具 (GitHub 直接執行版)</title>
+    <title>學員手動開課工具 (GitHub 穩定版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .loading-spinner {
@@ -30,7 +30,7 @@
                 </svg>
             </div>
             <h1 class="text-3xl font-extrabold text-slate-800 tracking-tight">冠廷老師專屬：一鍵開課工具</h1>
-            <p class="text-slate-500 mt-2">API 資訊已安全嵌入，直接輸入學員資料即可。</p>
+            <p class="text-slate-500 mt-2">穩定代理版本：若發生錯誤請查看下方提示。</p>
         </div>
 
         <div class="grid grid-cols-1 gap-8">
@@ -46,7 +46,7 @@
                         <input type="text" id="studentName" class="w-full border-slate-300 rounded-lg shadow-sm p-3 focus:ring-indigo-500 focus:border-indigo-500 border" placeholder="例如：林冠廷">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">學員電話 (選填)</label>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">學員電話</label>
                         <input type="text" id="studentPhone" class="w-full border-slate-300 rounded-lg shadow-sm p-3 focus:ring-indigo-500 focus:border-indigo-500 border" placeholder="例如：0900123456">
                     </div>
                 </div>
@@ -72,21 +72,21 @@
 
         <!-- 輔助說明 -->
         <div id="proxyHelp" class="hidden mt-6 p-4 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-800">
-            <p class="font-bold mb-1">💡 解決連線失敗 (CORS) 步驟：</p>
+            <p class="font-bold mb-1">💡 解決連線失敗 (CORS) 教學：</p>
+            <p class="mb-2">目前的自動代理連線失敗，請嘗試手動啟用最強代理：</p>
             <ol class="list-decimal ml-4 space-y-1">
-                <li>請先點擊訪問 <a href="https://cors-anywhere.herokuapp.com/corsdemo" target="_blank" class="underline font-bold">此連結</a>。</li>
-                <li>點擊頁面中的按鈕 <b>"Request temporary access to the demo server"</b>。</li>
-                <li>回到本頁面重新送出即可成功。</li>
+                <li>點擊訪問 <a href="https://cors-anywhere.herokuapp.com/corsdemo" target="_blank" class="underline font-bold text-indigo-600">啟用代理伺服器連結</a>。</li>
+                <li>點擊頁面中間的 <b>"Request temporary access to the demo server"</b> 按鈕。</li>
+                <li>成功後回到本頁重新按「立即開通」即可。</li>
             </ol>
         </div>
 
         <footer class="mt-10 pt-6 border-t border-slate-100 text-center text-slate-400 text-xs italic">
-            本工具由 GitHub Pages 託管。API 已預設為冠廷老師的 Teachify 帳號。
+            本工具僅供內部使用。如頻繁出錯，請考慮使用 Google GAS 方案以獲得 100% 穩定性。
         </footer>
     </div>
 
     <script>
-        // 您的專屬配置
         const CONFIG = {
             apiKey: 'key-1617afadff9f6d69488263e4f3cf9df92d441cdb511495ceb34a051c59192c1c',
             endpoint: 'https://vintexercise.teachify.tw/graphql'
@@ -110,58 +110,46 @@
             }
 
             btn.disabled = true;
-            btn.innerHTML = '<span class="loading-spinner"></span> 正在處理中...';
+            btn.innerHTML = '<span class="loading-spinner"></span> 正在連線中...';
             status.classList.add('hidden');
             proxyHelp.classList.add('hidden');
 
-            const GQL_MUTATION = {
-                query: `
-                    mutation CreateEnrollment($email: String!, $courseId: ID!, $name: String, $phone: String) {
-                        createEnrollment(input: {
-                            email: $email,
-                            courseId: $courseId,
-                            name: $name,
-                            phone: $phone
-                        }) {
-                            success
-                            errors
-                        }
+            const GQL_QUERY = {
+                query: `mutation CreateEnrollment($email: String!, $courseId: ID!, $name: String, $phone: String) {
+                    createEnrollment(input: { email: $email, courseId: $courseId, name: $name, phone: $phone }) {
+                        success
+                        errors
                     }
-                `,
+                }`,
                 variables: studentData
             };
 
-            // 備援代理伺服器清單
-            const proxies = [
-                `https://cors-anywhere.herokuapp.com/`,
-                `https://api.allorigins.win/raw?url=`
+            // 調整代理優先順序，allorigins 有時較快
+            const proxyUrls = [
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(CONFIG.endpoint)}`,
+                `https://cors-anywhere.herokuapp.com/${CONFIG.endpoint}`
             ];
 
-            let success = false;
+            let lastError = "";
 
-            for (let proxy of proxies) {
+            for (let url of proxyUrls) {
                 try {
-                    const finalUrl = proxy.includes('allorigins') 
-                        ? `${proxy}${encodeURIComponent(CONFIG.endpoint)}` 
-                        : `${proxy}${CONFIG.endpoint}`;
-
-                    const response = await fetch(finalUrl, {
+                    const response = await fetch(url, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'Authorization': `Bearer ${CONFIG.apiKey}`,
                             'X-Requested-With': 'XMLHttpRequest'
                         },
-                        body: JSON.stringify(GQL_MUTATION)
+                        body: JSON.stringify(GQL_QUERY)
                     });
 
-                    if (response.status === 403 && proxy.includes('herokuapp')) {
-                        // 如果 Heroku 報 403，通常是需要點擊啟用按鈕
+                    if (response.status === 403 && url.includes('herokuapp')) {
                         proxyHelp.classList.remove('hidden');
-                        throw new Error('請先啟用代理伺服器權限（見下方說明）。');
+                        throw new Error('需要手動開啟代理權限');
                     }
 
-                    if (!response.ok) throw new Error('連線失敗');
+                    if (!response.ok) throw new Error(`代理連線回應失敗 (${response.status})`);
 
                     const result = await response.json();
                     
@@ -171,23 +159,28 @@
 
                     const resData = result.data.createEnrollment;
                     if (resData.success) {
-                        showMessage(`✅ 成功！學員 ${studentData.email} 已加入課程。`, 'success');
+                        showMessage(`✅ 成功！學員 ${studentData.email} 已順利開通。`, 'success');
+                        // 清空輸入
                         document.getElementById('studentName').value = '';
                         document.getElementById('studentEmail').value = '';
                         document.getElementById('studentPhone').value = '';
-                        success = true;
-                        break; 
+                        btn.disabled = false;
+                        btn.innerText = '立即開通課程權限';
+                        return;
                     } else {
                         throw new Error(resData.errors.join(', '));
                     }
                 } catch (err) {
-                    console.warn(`使用代理 ${proxy} 失敗:`, err.message);
-                    if (proxy === proxies[proxies.length - 1]) {
-                        showMessage(`❌ 錯誤：${err.message}`, 'error');
-                    }
+                    lastError = err.message;
+                    console.warn(`嘗試代理 ${url} 失敗:`, err);
                 }
             }
 
+            // 如果迴圈跑完都沒 return 代表失敗
+            showMessage(`❌ 失敗原因：${lastError}。若為連線問題，請點擊下方教學。`, 'error');
+            if (lastError.includes('fetch') || lastError.includes('連線')) {
+                proxyHelp.classList.remove('hidden');
+            }
             btn.disabled = false;
             btn.innerText = '立即開通課程權限';
         }
@@ -195,8 +188,9 @@
         function showMessage(msg, type) {
             const status = document.getElementById('statusMessage');
             status.innerHTML = msg;
-            status.classList.remove('hidden', 'bg-red-50', 'text-red-700', 'border-red-200', 'bg-green-50', 'text-green-700', 'border-green-200');
-            status.classList.add(type === 'error' ? 'bg-red-50' : 'bg-green-50', type === 'error' ? 'text-red-700' : 'text-green-700', type === 'error' ? 'border-red-200' : 'border-green-200');
+            status.className = `p-4 rounded-xl text-sm font-medium border leading-relaxed ${
+                type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-green-50 text-green-700 border-green-200'
+            }`;
             status.classList.remove('hidden');
         }
     </script>
