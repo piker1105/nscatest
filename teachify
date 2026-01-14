@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>學員手動開課工具 (GitHub 穩定除錯版)</title>
+    <title>學員手動開課工具 (GAS 終極版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .loading-spinner {
@@ -22,88 +22,69 @@
 </head>
 <body class="bg-slate-50 min-h-screen py-8 px-4 font-sans">
     <div class="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden p-6 md:p-10 border border-slate-100">
-        <!-- 標題區 -->
         <div class="mb-10 text-center">
-            <div class="inline-block p-3 bg-indigo-100 rounded-full mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+            <div class="inline-block p-3 bg-green-100 rounded-full mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                 </svg>
             </div>
-            <h1 class="text-3xl font-extrabold text-slate-800 tracking-tight">冠廷老師專屬：一鍵開課工具</h1>
-            <p class="text-slate-500 mt-2 text-sm">已啟用「多重代理自癒」與「詳細錯誤診斷」模式</p>
+            <h1 class="text-3xl font-extrabold text-slate-800 tracking-tight">冠廷老師：GAS 穩定開課工具</h1>
+            <p class="text-slate-500 mt-2 text-sm">此版本透過 Google 伺服器轉發，無需代理工具，最為穩定。</p>
         </div>
 
         <div class="grid grid-cols-1 gap-8">
-            <!-- 學員資料區塊 -->
             <section class="space-y-5">
                 <div class="flex items-center justify-between">
-                    <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wider border-b-2 border-indigo-500 pb-1">學員與課程資訊</h2>
-                    <span id="proxyIndicator" class="text-[10px] bg-slate-200 text-slate-600 px-2 py-1 rounded">檢查代理狀態中...</span>
+                    <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wider border-b-2 border-green-500 pb-1">學員與課程資訊</h2>
                 </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">學員姓名</label>
-                        <input type="text" id="studentName" class="w-full border-slate-300 rounded-lg shadow-sm p-3 focus:ring-indigo-500 focus:border-indigo-500 border" placeholder="例如：林冠廷">
+                        <input type="text" id="studentName" class="w-full border-slate-300 rounded-lg shadow-sm p-3 focus:ring-green-500 focus:border-green-500 border" placeholder="林冠廷">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">學員電話</label>
-                        <input type="text" id="studentPhone" class="w-full border-slate-300 rounded-lg shadow-sm p-3 focus:ring-indigo-500 focus:border-indigo-500 border" placeholder="例如：0900123456">
+                        <input type="text" id="studentPhone" class="w-full border-slate-300 rounded-lg shadow-sm p-3 focus:ring-green-500 focus:border-green-500 border" placeholder="0900123456">
                     </div>
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">學員 Email (必填)</label>
-                    <input type="email" id="studentEmail" class="w-full border-slate-300 rounded-lg shadow-sm p-3 focus:ring-indigo-500 focus:border-indigo-500 border" placeholder="student@example.com">
+                    <input type="email" id="studentEmail" class="w-full border-slate-300 rounded-lg shadow-sm p-3 focus:ring-green-500 focus:border-green-500 border" placeholder="student@example.com">
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">課程編號 (Course ID)</label>
-                    <input type="text" id="courseId" class="w-full border-slate-300 rounded-lg shadow-sm p-3 focus:ring-indigo-500 focus:border-indigo-500 border" placeholder="請輸入 Course ID">
+                    <input type="text" id="courseId" class="w-full border-slate-300 rounded-lg shadow-sm p-3 focus:ring-green-500 focus:border-green-500 border" placeholder="請貼入 Course ID">
                 </div>
             </section>
 
-            <button onclick="submitEnrollment()" id="submitBtn" class="w-full bg-indigo-600 text-white font-bold py-4 px-6 rounded-xl hover:bg-indigo-700 transform active:scale-[0.98] transition-all shadow-lg shadow-indigo-200">
+            <button onclick="submitViaGAS()" id="submitBtn" class="w-full bg-green-600 text-white font-bold py-4 px-6 rounded-xl hover:bg-green-700 transform active:scale-[0.98] transition-all shadow-lg shadow-green-200">
                 立即開通課程權限
             </button>
 
-            <!-- 訊息回饋 -->
             <div id="statusMessage" class="hidden p-4 rounded-xl text-sm font-medium border leading-relaxed break-all"></div>
         </div>
 
-        <!-- 輔助說明 -->
-        <div id="proxyHelp" class="hidden mt-6 p-4 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-800">
-            <p class="font-bold mb-1">💡 檢測到連線異常：</p>
-            <p class="mb-2">如果您已點擊啟用按鈕但依然失敗，請確認以下兩點：</p>
-            <ol class="list-decimal ml-4 space-y-1">
-                <li>請確認您使用的是 HTTPS 網址。</li>
-                <li>點擊 <a href="https://cors-anywhere.herokuapp.com/corsdemo" target="_blank" class="underline font-bold text-indigo-600">這裡</a> 重新確認頁面顯示 "You currently have temporary access"。</li>
-                <li>請檢查 Teachify 後台 API Key 是否有寫入權限，以及 Course ID 是否正確。</li>
-            </ol>
-        </div>
-
         <footer class="mt-10 pt-6 border-t border-slate-100 text-center text-slate-400 text-xs italic">
-            本工具僅供內部使用。系統會自動嘗試不同的代理路徑以確保成功率。
+            本工具將請求加密發送至 Google 雲端進行轉發。
         </footer>
     </div>
 
     <script>
-        const CONFIG = {
-            apiKey: 'key-1617afadff9f6d69488263e4f3cf9df92d441cdb511495ceb34a051c59192c1c',
-            endpoint: 'https://vintexercise.teachify.tw/graphql'
-        };
+        // 已填入您的 Google Script 部署網址
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbxPbKyUxnDNEW-aFS9AXVuHMynLKkSmQYp2xwgE4tXvAkgDSe8H2AFXXoWiDEWmaew/exec';
 
-        async function submitEnrollment() {
+        async function submitViaGAS() {
             const btn = document.getElementById('submitBtn');
             const status = document.getElementById('statusMessage');
-            const proxyHelp = document.getElementById('proxyHelp');
-            const indicator = document.getElementById('proxyIndicator');
             
             const studentData = {
                 name: document.getElementById('studentName').value.trim() || null,
                 email: document.getElementById('studentEmail').value.trim(),
                 phone: document.getElementById('studentPhone').value.trim() || null,
-                courseId: document.getElementById('courseId').value.trim().toString() // 強制轉為字串
+                courseId: document.getElementById('courseId').value.trim()
             };
 
             if (!studentData.email || !studentData.courseId) {
@@ -112,88 +93,42 @@
             }
 
             btn.disabled = true;
-            btn.innerHTML = '<span class="loading-spinner"></span> 正在連線 Teachify...';
+            btn.innerHTML = '<span class="loading-spinner"></span> 正在連線中...';
             status.classList.add('hidden');
-            proxyHelp.classList.add('hidden');
 
-            const GQL_BODY = {
-                query: `mutation CreateEnrollment($email: String!, $courseId: ID!, $name: String, $phone: String) {
-                    createEnrollment(input: { 
-                        email: $email, 
-                        courseId: $courseId, 
-                        name: $name, 
-                        phone: $phone 
-                    }) {
-                        success
-                        errors
-                    }
-                }`,
-                variables: studentData
-            };
+            try {
+                const response = await fetch(GAS_URL, {
+                    method: 'POST',
+                    body: JSON.stringify(studentData)
+                });
 
-            const proxyConfigs = [
-                { name: 'AllOrigins', url: `https://api.allorigins.win/raw?url=${encodeURIComponent(CONFIG.endpoint)}` },
-                { name: 'CORS-Anywhere', url: `https://cors-anywhere.herokuapp.com/${CONFIG.endpoint}` }
-            ];
-
-            let errorLogs = [];
-
-            for (let config of proxyConfigs) {
-                try {
-                    indicator.innerText = `嘗試使用 ${config.name}...`;
-                    indicator.className = "text-[10px] bg-blue-100 text-blue-600 px-2 py-1 rounded";
-
-                    const response = await fetch(config.url, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${CONFIG.apiKey}`,
-                            'Accept': 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest'
-                        },
-                        body: JSON.stringify(GQL_BODY)
-                    });
-
-                    if (!response.ok) {
-                        const errText = await response.text();
-                        throw new Error(`伺服器回應 ${response.status}`);
-                    }
-
-                    const result = await response.json();
-                    
-                    if (result.errors) {
-                        // 這是 Teachify 回傳的錯誤訊息
-                        throw new Error(`${result.errors[0].message}`);
-                    }
-
-                    const enrollmentResult = result.data.createEnrollment;
-                    
-                    if (enrollmentResult.success) {
-                        showMessage(`✅ 成功開通！<br>學員：${studentData.email}<br>課程 ID：${studentData.courseId}`, 'success');
-                        indicator.innerText = `${config.name} 連線正常`;
-                        indicator.className = "text-[10px] bg-green-100 text-green-600 px-2 py-1 rounded";
-                        
-                        document.getElementById('studentName').value = '';
-                        document.getElementById('studentEmail').value = '';
-                        document.getElementById('studentPhone').value = '';
-                        btn.disabled = false;
-                        btn.innerText = '立即開通課程權限';
-                        return;
-                    } else {
-                        throw new Error(`系統拒絕：${enrollmentResult.errors.join(', ')}`);
-                    }
-
-                } catch (err) {
-                    errorLogs.push(`${config.name}: ${err.message}`);
+                const result = await response.json();
+                
+                // 檢查 Teachify API 回傳的成功狀態
+                if (result.data && result.data.createEnrollment && result.data.createEnrollment.success) {
+                    showMessage(`✅ 成功！學員 ${studentData.email} 已開通課程。`, 'success');
+                    // 開通成功後清空欄位
+                    document.getElementById('studentName').value = '';
+                    document.getElementById('studentEmail').value = '';
+                    document.getElementById('studentPhone').value = '';
+                } else if (result.errors) {
+                    // 處理 GraphQL 錯誤（如 API Key 錯誤）
+                    showMessage(`❌ API 錯誤：${result.errors[0].message}`, 'error');
+                } else if (result.data && result.data.createEnrollment) {
+                    // 處理業務錯誤（如 Course ID 錯誤或學員已存在）
+                    showMessage(`❌ 系統拒絕：${result.data.createEnrollment.errors.join(', ')}`, 'error');
+                } else {
+                    showMessage('❌ 收到未知格式的回應。', 'error');
                 }
+                
+            } catch (err) {
+                // 通常是連線問題或 GAS 部署權限設定問題
+                showMessage(`❌ 連線失敗：無法讀取結果。請確認 GAS 部署是否設為「所有人」存取。`, 'error');
+                console.error(err);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = '立即開通課程權限';
             }
-
-            showMessage(`❌ 開通失敗：<br><ul class="list-disc ml-5 mt-2"><li>${errorLogs.join('</li><li>')}</li></ul>`, 'error');
-            proxyHelp.classList.remove('hidden');
-            indicator.innerText = `連線全數失敗`;
-            indicator.className = "text-[10px] bg-red-100 text-red-600 px-2 py-1 rounded";
-            btn.disabled = false;
-            btn.innerText = '重試開通權限';
         }
 
         function showMessage(msg, type) {
