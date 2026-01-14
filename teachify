@@ -100,9 +100,9 @@
             const indicator = document.getElementById('proxyIndicator');
             
             const studentData = {
-                name: document.getElementById('studentName').value.trim() || "未命名",
+                name: document.getElementById('studentName').value.trim() || null,
                 email: document.getElementById('studentEmail').value.trim(),
-                phone: document.getElementById('studentPhone').value.trim() || "",
+                phone: document.getElementById('studentPhone').value.trim() || null,
                 courseId: document.getElementById('courseId').value.trim()
             };
 
