@@ -61,6 +61,14 @@
                     <input type="text" id="courseId" class="w-full border-slate-300 rounded-lg shadow-sm p-3 focus:ring-indigo-500 focus:border-indigo-500 border" placeholder="請輸入 Teachify 系統內的課程 ID">
                     <p class="text-xs text-slate-400 mt-2 italic">提示：進入 Teachify 後台課程網址，最後一段數字即為 ID。</p>
                 </div>
+
+                <!-- 代理開關 (隱藏但預設開啟，解決跨網域問題) -->
+                <div class="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                    <label class="flex items-center cursor-pointer">
+                        <input type="checkbox" id="useProxy" checked class="form-checkbox h-4 w-4 text-indigo-600">
+                        <span class="ml-2 text-xs text-amber-800 font-medium">啟用 CORS 轉接代理 (若發生 Failed to fetch 請務必勾選)</span>
+                    </label>
+                </div>
             </section>
 
             <button onclick="submitEnrollment()" id="submitBtn" class="w-full bg-indigo-600 text-white font-bold py-4 px-6 rounded-xl hover:bg-indigo-700 transform active:scale-[0.98] transition-all shadow-lg shadow-indigo-200">
@@ -68,7 +76,7 @@
             </button>
 
             <!-- 訊息回饋 -->
-            <div id="statusMessage" class="hidden p-4 rounded-xl text-sm font-medium border"></div>
+            <div id="statusMessage" class="hidden p-4 rounded-xl text-sm font-medium border leading-relaxed"></div>
         </div>
 
         <footer class="mt-10 pt-6 border-t border-slate-100 text-center text-slate-400 text-xs italic">
@@ -86,6 +94,7 @@
         async function submitEnrollment() {
             const btn = document.getElementById('submitBtn');
             const status = document.getElementById('statusMessage');
+            const useProxy = document.getElementById('useProxy').checked;
             
             const studentData = {
                 name: document.getElementById('studentName').value.trim(),
@@ -101,7 +110,7 @@
             }
 
             btn.disabled = true;
-            btn.innerHTML = '<span class="loading-spinner"></span> 正在與 Teachify 通訊中...';
+            btn.innerHTML = '<span class="loading-spinner"></span> 正在處理中...';
             status.classList.add('hidden');
 
             const GQL_MUTATION = {
@@ -129,18 +138,29 @@
                 }
             };
 
+            // 使用 cors-anywhere 公共代理
+            const finalEndpoint = useProxy 
+                ? `https://cors-anywhere.herokuapp.com/${CONFIG.endpoint}` 
+                : CONFIG.endpoint;
+
             try {
-                const response = await fetch(CONFIG.endpoint, {
+                const response = await fetch(finalEndpoint, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${CONFIG.apiKey}`
+                        'Authorization': `Bearer ${CONFIG.apiKey}`,
+                        // 部分代理需要此標頭來識別為 AJAX 請求
+                        'X-Requested-With': 'XMLHttpRequest'
                     },
                     body: JSON.stringify(GQL_MUTATION)
                 });
 
+                if (response.status === 403 && useProxy) {
+                    throw new Error('需要先「點擊啟用」代理服務：請先訪問 https://cors-anywhere.herokuapp.com/corsdemo 並點擊按鈕，然後再回來重試。');
+                }
+
                 if (!response.ok) {
-                    throw new Error(`連線失敗 (HTTP ${response.status})。請確認 API Token 是否仍有效。`);
+                    throw new Error(`連線失敗 (HTTP ${response.status})。`);
                 }
 
                 const result = await response.json();
@@ -153,7 +173,6 @@
 
                 if (responseData && responseData.success) {
                     showMessage(`✅ 成功！學員 ${studentData.email} 已順利開通課程。`, 'success');
-                    // 清空表單學員部分
                     document.getElementById('studentName').value = '';
                     document.getElementById('studentEmail').value = '';
                     document.getElementById('studentPhone').value = '';
@@ -163,7 +182,11 @@
                 }
             } catch (err) {
                 console.error(err);
-                showMessage(`⚠️ 系統發生錯誤：${err.message}`, 'error');
+                if (err.message.includes('Failed to fetch')) {
+                    showMessage(`⚠️ 連線錯誤：瀏覽器阻止了跨網域請求。請嘗試勾選下方的「啟用代理」，或點擊訊息中的連結啟用權限。`, 'error');
+                } else {
+                    showMessage(`⚠️ 系統發生錯誤：${err.message}`, 'error');
+                }
             } finally {
                 btn.disabled = false;
                 btn.innerText = '立即開通課程權限';
@@ -172,7 +195,7 @@
 
         function showMessage(msg, type) {
             const status = document.getElementById('statusMessage');
-            status.innerText = msg;
+            status.innerHTML = msg;
             status.classList.remove('hidden', 'bg-red-50', 'text-red-700', 'border-red-200', 'bg-green-50', 'text-green-700', 'border-green-200');
             if (type === 'error') {
                 status.classList.add('bg-red-50', 'text-red-700', 'border-red-200');
