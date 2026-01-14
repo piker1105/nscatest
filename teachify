@@ -29,7 +29,7 @@
                 </svg>
             </div>
             <h1 class="text-3xl font-extrabold text-slate-800 tracking-tight">冠廷老師：GAS 穩定開課工具</h1>
-            <p class="text-slate-500 mt-2 text-sm">此版本透過 Google 伺服器轉發，無需代理工具，最為穩定。</p>
+            <p class="text-slate-500 mt-2 text-sm">此版本透過 Google 伺服器轉發，並修正了 GAS 兼容性問題。</p>
         </div>
 
         <div class="grid grid-cols-1 gap-8">
@@ -67,7 +67,6 @@
             <div id="statusMessage" class="hidden p-4 rounded-xl text-sm font-medium border leading-relaxed break-all"></div>
         </div>
 
-        <!-- 偵錯資訊區塊（預設隱藏） -->
         <div id="debugInfo" class="hidden mt-6 p-4 bg-slate-100 rounded-lg border border-slate-200 text-[10px] font-mono text-slate-600 overflow-x-auto">
             <p class="font-bold mb-1 uppercase tracking-widest text-slate-400 text-[9px]">系統偵錯日誌</p>
             <div id="debugContent"></div>
@@ -79,7 +78,6 @@
     </div>
 
     <script>
-        // 已填入您的 Google Script 部署網址
         const GAS_URL = 'https://script.google.com/macros/s/AKfycbxPbKyUxnDNEW-aFS9AXVuHMynLKkSmQYp2xwgE4tXvAkgDSe8H2AFXXoWiDEWmaew/exec';
 
         async function submitViaGAS() {
@@ -101,51 +99,39 @@
             }
 
             btn.disabled = true;
-            btn.innerHTML = '<span class="loading-spinner"></span> 正在連線中...';
+            btn.innerHTML = '<span class="loading-spinner"></span> 正在處理中...';
             status.classList.add('hidden');
             debug.classList.add('hidden');
             debugContent.innerText = '';
 
             try {
-                // 使用 POST 並確保傳送的是純字串化的 JSON
+                // 使用簡單請求避免 OPTIONS 預檢，規避 GAS addHeader 報錯問題
                 const response = await fetch(GAS_URL, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'text/plain;charset=utf-8', // GAS 偏好 text/plain 來規避某些 CORS 預檢
-                    },
+                    mode: 'cors',
                     body: JSON.stringify(studentData)
                 });
 
-                const resultText = await response.text();
-                logDebug(`Raw Response: ${resultText}`);
+                const result = await response.json();
+                logDebug(`Response: ${JSON.stringify(result)}`);
 
-                let result;
-                try {
-                    result = JSON.parse(resultText);
-                } catch (e) {
-                    throw new Error(`無法解析回應內容。可能是 GAS 尚未部署為「所有人」。內容：${resultText.substring(0, 100)}`);
-                }
-                
-                // 檢查 Teachify API 回傳的成功狀態
                 if (result.data && result.data.createEnrollment && result.data.createEnrollment.success) {
                     showMessage(`✅ 成功！學員 ${studentData.email} 已開通課程。`, 'success');
-                    document.getElementById('studentName').value = '';
                     document.getElementById('studentEmail').value = '';
                     document.getElementById('studentPhone').value = '';
+                    document.getElementById('studentName').value = '';
                 } else if (result.errors) {
-                    showMessage(`❌ API 錯誤：${result.errors[0].message}`, 'error');
+                    showMessage(`❌ API 錯誤：${result.errors[0].message || result.errors[0]}`, 'error');
                 } else if (result.data && result.data.createEnrollment) {
                     showMessage(`❌ 系統拒絕：${result.data.createEnrollment.errors.join(', ')}`, 'error');
                 } else {
-                    showMessage('❌ 收到未知格式的回應。請展開下方偵錯日誌。', 'error');
-                    debug.classList.remove('hidden');
+                    showMessage('❌ 收到未知回應。', 'error');
                 }
                 
             } catch (err) {
-                showMessage(`❌ 連線失敗：無法讀取結果。<br>這通常是因為 GAS 網址不正確，或是部署權限未設為「所有人」。`, 'error');
+                showMessage(`❌ 連線或處理失敗。可能是 GAS 網址不正確或權限未開放。`, 'error');
                 debugContent.innerText = `Error: ${err.message}`;
                 debug.classList.remove('hidden');
-                console.error(err);
             } finally {
                 btn.disabled = false;
                 btn.innerText = '立即開通課程權限';
