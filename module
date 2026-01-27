@@ -1,1005 +1,359 @@
-
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>週期化多維度訓練設計儀表板</title>
-    
-    <!-- Tailwind CSS -->
+    <title>2026 教練專業進化：跨領域必修學分</title>
+    <!-- 載入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- React & ReactDOM (使用 React 18) -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    
-    <!-- Prop-types (Recharts 依賴) -->
-    <script src="https://unpkg.com/prop-types/prop-types.js"></script>
-    
-    <!-- Recharts (鎖定穩定版本 2.12.7) -->
-    <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
-
-    <!-- PDF Generation Libraries: html2canvas for capturing DOM, jspdf for creating PDF -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    
-    <!-- Babel for JSX -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
     <style>
+        /* 使用 Inter 字體 */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
         body {
-            background-color: #f3f4f6;
-            font-family: 'Inter', 'Microsoft JhengHei', sans-serif;
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb; /* 淺灰背景 */
         }
-        .draggable-source {
-            cursor: grab;
-            transition: all 0.2s;
+        /* 策展卡片樣式 - 提高陰影和細節 */
+        .course-card {
+            transition: transform 0.3s, box-shadow 0.3s;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05); /* 輕微陰影 */
         }
-        .draggable-source:active {
-            cursor: grabbing;
-            transform: scale(0.95);
-        }
-        .drop-zone {
-            min-height: 120px;
-            transition: background-color 0.2s;
-        }
-        .drop-zone.drag-over {
-            background-color: #e5e7eb;
-            border: 2px dashed #9ca3af;
-        }
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1; 
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #cbd5e1; 
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8; 
+        .course-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 25px rgba(0, 0, 0, 0.15); /* 更有衝擊力的陰影 */
         }
     </style>
 </head>
 <body>
-    <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
-        const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, Cell } = window.Recharts;
-
-        // --- Constants ---
-        const TOTAL_WEEKS = 52;
-        const BLOCK_WEEKS = 4; // 月週期 / Mesocycle
-        const QUARTER_WEEKS = 13; // 季週期 / Quarter
-
-        const VIEW_MODES = [
-            { id: 'WEEK', name: '週 (Microcycle)', step: 1, label: 'W' },
-            { id: 'MONTH', name: '月 (Mesocycle)', step: BLOCK_WEEKS, label: 'Block' },
-            { id: 'QUARTER', name: '季 (Trimester)', step: QUARTER_WEEKS, label: 'Q' },
-            { id: 'YEAR', name: '年 (Macrocycle)', step: TOTAL_WEEKS, label: 'Year' }
-        ];
-
-        // --- Data Definitions ---
-        const MODULE_TYPES = {
-            STRENGTH: { id: 'strength', name: '基礎肌力', color: '#3b82f6', bgColor: 'bg-blue-100', borderColor: 'border-blue-500', textColor: 'text-blue-800', summary: 'S' },
-            HYPERTROPHY: { id: 'hypertrophy', name: '肌肥大', color: '#8b5cf6', bgColor: 'bg-purple-100', borderColor: 'border-purple-500', textColor: 'text-purple-800', summary: 'H' },
-            POWER: { id: 'power', name: '爆發力', color: '#ef4444', bgColor: 'bg-red-100', borderColor: 'border-red-500', textColor: 'text-red-800', summary: 'P' },
-            ENDURANCE: { id: 'endurance', name: '有氧耐力', color: '#10b981', bgColor: 'bg-green-100', borderColor: 'border-green-500', textColor: 'text-green-800', summary: 'E' },
-            RECOVERY: { id: 'recovery', name: '主動恢復', color: '#f59e0b', bgColor: 'bg-yellow-100', borderColor: 'border-yellow-500', textColor: 'text-yellow-800', summary: 'R' },
-        };
-
-        const INITIAL_MODULES = [
-            { id: 'm1', type: 'STRENGTH', name: '深蹲重點訓練', sets: 5, reps: 5, rpe: 8, duration: 60 },
-            { id: 'm2', type: 'HYPERTROPHY', name: '上肢推拉', sets: 4, reps: 10, rpe: 7, duration: 50 },
-            { id: 'm3', type: 'POWER', name: '增強式跳躍', sets: 6, reps: 3, rpe: 9, duration: 40 },
-            { id: 'm4', type: 'ENDURANCE', name: 'LISS 慢跑', sets: 1, reps: 1, rpe: 4, duration: 45 },
-            { id: 'm5', type: 'RECOVERY', name: '滾筒放鬆', sets: 1, reps: 1, rpe: 2, duration: 30 },
-        ];
-
-        const DAYS = ['週一', '週二', '週三', '週四', '週五', '週六', '週日'];
-
-        // --- Icons (Inline SVGs) ---
-        const Icons = {
-            Dumbbell: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6.5 6.5 11 11"/><path d="m21 21-1-1"/><path d="m3 3 1 1"/><path d="m18 22 4-4"/><path d="m2 6 4-4"/><path d="m3 10 7.9-7.9a2.12 2.12 0 0 1 3 3L6.9 12.1a2 1.2 2 1.2 0 0 1-1.7 0l-1.4-1.4a1.2 1.2 0 0 1 0-1.7z"/><path d="m14 11 7.9-7.9a2.12 2.12 0 0 1 3 3L17.9 13.1a2.12 2.12 0 0 1-3-3z"/></svg>,
-            Zap: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>,
-            Heart: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>,
-            Activity: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>,
-            Smile: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></svg>,
-            Trash: () => <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>,
-            ChevronLeft: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>,
-            ChevronRight: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>,
-            Clock: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
-            FileText: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>,
-        };
-
-        const getIcon = (type) => {
-            switch(type) {
-                case 'STRENGTH': return <Icons.Dumbbell />;
-                case 'HYPERTROPHY': return <Icons.Activity />;
-                case 'POWER': return <Icons.Zap />;
-                case 'ENDURANCE': return <Icons.Heart />;
-                case 'RECOVERY': return <Icons.Smile />;
-                default: return <Icons.Activity />;
-            }
-        };
-
-        // --- Calculation Logic ---
-        const calculateLoad = (mod) => {
-            if (mod.type === 'ENDURANCE' || mod.type === 'RECOVERY') {
-                return mod.duration * mod.rpe;
-            } else {
-                return (mod.sets * mod.reps) * mod.rpe * 1.5; 
-            }
-        };
-        
-        const getDailySummary = (modules) => {
-            const totalLoad = modules.reduce((acc, m) => acc + calculateLoad(m), 0);
-            const totalDuration = modules.reduce((acc, m) => acc + m.duration, 0);
-
-            // Find the most frequent module type for summary
-            const typeCounts = modules.reduce((acc, m) => {
-                acc[m.type] = (acc[m.type] || 0) + 1;
-                return acc;
-            }, {});
-            
-            let mainFocus = 'R';
-            let maxCount = 0;
-            if (Object.keys(typeCounts).length > 0) {
-                Object.keys(typeCounts).forEach(type => {
-                    if (typeCounts[type] > maxCount) {
-                        maxCount = typeCounts[type];
-                        mainFocus = MODULE_TYPES[type]?.summary || 'R';
-                    }
-                });
-            }
-
-            return {
-                load: Math.round(totalLoad),
-                duration: totalDuration,
-                focus: mainFocus,
-                focusColor: MODULE_TYPES[modules.find(m => MODULE_TYPES[m.type].summary === mainFocus)?.type]?.color || '#9ca3af',
-                count: modules.length,
-            };
-        };
-
-        // --- Components ---
-
-        const DraggableModule = ({ module, onDragStart }) => {
-            const styleInfo = MODULE_TYPES[module.type] || MODULE_TYPES.STRENGTH;
-            return (
-                <div 
-                    draggable 
-                    onDragStart={(e) => onDragStart(e, module)}
-                    className={`p-3 mb-2 rounded-lg border-l-4 shadow-sm bg-white cursor-grab hover:shadow-md transition-all flex items-center justify-between ${styleInfo.borderColor}`}
-                >
-                    <div className="flex items-center gap-2">
-                        <span className={styleInfo.textColor}>{getIcon(module.type)}</span>
-                        <div>
-                            <p className="font-bold text-sm text-gray-700">{module.name}</p>
-                            <p className="text-xs text-gray-500">{styleInfo.name}</p>
-                        </div>
-                    </div>
+    <!-- 頂部導覽列 (可固定) -->
+    <nav class="sticky top-0 z-50 bg-white shadow-xl">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <a href="#" class="flex-shrink-0 text-2xl font-extrabold text-teal-700 tracking-wider">
+                    運釀
+                </a>
+                <div class="hidden md:flex space-x-8">
+                    <a href="#themes" class="text-gray-600 hover:text-teal-600 transition duration-150 font-medium">課程主題</a>
+                    <a href="#coaches" class="text-gray-600 hover:text-teal-600 transition duration-150 font-medium">導師陣容</a>
+                    <a href="#pricing" class="text-xl font-extrabold text-teal-600 border-b-4 border-teal-600 pb-1">立即報名</a>
                 </div>
-            );
-        };
-
-        const ScheduledModuleCard = ({ module, onClick, onDelete }) => {
-            const styleInfo = MODULE_TYPES[module.type] || MODULE_TYPES.STRENGTH;
-            const loadDisplay = module.type === 'ENDURANCE' || module.type === 'RECOVERY' 
-                ? `RPE ${module.rpe} | ${module.duration}分` 
-                : `${module.sets}組 x ${module.reps}次 @ RPE ${module.rpe}`;
-
-            return (
-                <div 
-                    className={`group relative p-2 mb-2 rounded border ${styleInfo.bgColor} ${styleInfo.borderColor} cursor-pointer hover:brightness-95 transition-all`}
-                    onClick={onClick}
-                >
-                    <div className="flex justify-between items-start mb-1">
-                        <span className={`text-xs font-bold ${styleInfo.textColor} uppercase tracking-wider`}>{styleInfo.name}</span>
-                        <button 
-                            onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                            className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                            <Icons.Trash />
-                        </button>
-                    </div>
-                    <p className="text-sm font-semibold text-gray-800 leading-tight mb-1">{module.name}</p>
-                    <p className="text-xs text-gray-600 font-mono">{loadDisplay}</p>
-                </div>
-            );
-        };
-
-        const EditModal = ({ isOpen, onClose, module, onSave }) => {
-            if (!isOpen || !module) return null;
-            
-            const [localModule, setLocalModule] = useState({...module});
-
-            useEffect(() => {
-                setLocalModule({...module});
-            }, [module]);
-
-            const handleChange = (field, value) => {
-                setLocalModule(prev => ({ ...prev, [field]: Number(value) }));
-            };
-
-            const isCardio = localModule.type === 'ENDURANCE' || localModule.type === 'RECOVERY';
-
-            return (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm">
-                        <div className="flex justify-between items-center mb-4 border-b pb-2">
-                            <h3 className="text-lg font-bold text-gray-800">編輯模組參數</h3>
-                            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
-                        </div>
-                        
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">模組名稱</label>
-                                <div className="text-gray-800 font-medium">{localModule.name}</div>
-                            </div>
-
-                            {!isCardio && (
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">組數 (Sets)</label>
-                                        <input 
-                                            type="number" 
-                                            min="1" max="20"
-                                            value={localModule.sets}
-                                            onChange={(e) => handleChange('sets', e.target.value)}
-                                            className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">次數 (Reps)</label>
-                                        <input 
-                                            type="number" 
-                                            min="1" max="100"
-                                            value={localModule.reps}
-                                            onChange={(e) => handleChange('reps', e.target.value)}
-                                            className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
-                                        />
-                                    </div>
-                                </div>
-                            )}
-
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">強度 (RPE 1-10)</label>
-                                <div className="flex items-center gap-2">
-                                    <input 
-                                        type="range" 
-                                        min="1" max="10" 
-                                        value={localModule.rpe}
-                                        onChange={(e) => handleChange('rpe', e.target.value)}
-                                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                                    />
-                                    <span className={`font-bold w-8 text-center ${localModule.rpe > 8 ? 'text-red-600' : 'text-blue-600'}`}>{localModule.rpe}</span>
-                                </div>
-                                <p className="text-xs text-gray-400 mt-1">10=力竭, 1=極輕鬆</p>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">持續時間 (分鐘)</label>
-                                <input 
-                                    type="number" 
-                                    min="5" max="180"
-                                    value={localModule.duration}
-                                    onChange={(e) => handleChange('duration', e.target.value)}
-                                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="mt-6 flex justify-end gap-2">
-                            <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">取消</button>
-                            <button 
-                                onClick={() => onSave(localModule)}
-                                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
-                            >
-                                儲存變更
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
-
-        // --- View Components ---
-
-        // View 1: WEEK View (Microcycle) - Detailed 7-day calendar (Existing)
-        const WeekView = ({ currentWeekSchedule, chartData, handleDragOver, handleDragLeave, handleDrop, openEditModal, deleteModule }) => (
-            <div className="flex gap-4 h-full min-w-[1000px]">
-                {DAYS.map((day, index) => {
-                    const dailyLoad = chartData.find(d => d.name === day)?.load || 0;
-                    return (
-                        <div 
-                            key={day} 
-                            className={`flex-1 flex flex-col min-w-[140px] rounded-xl bg-white border transition-colors ${
-                                index === 6 || index === 5 ? 'bg-gray-50/80 border-gray-200' : 'border-gray-200 shadow-sm'
-                            }`}
-                        >
-                            <div className="p-3 text-center border-b bg-gray-50 rounded-t-xl">
-                                <span className="font-bold text-gray-700">{day}</span>
-                                <div className="text-xs text-gray-400 mt-1">Day {index + 1}</div>
-                            </div>
-                            <div 
-                                className="flex-1 p-2 overflow-y-auto drop-zone"
-                                onDragOver={handleDragOver}
-                                onDragLeave={handleDragLeave}
-                                onDrop={(e) => handleDrop(e, index)}
-                            >
-                                {currentWeekSchedule[index]?.length === 0 && (
-                                    <div className="h-full flex items-center justify-center text-gray-300 text-sm italic pointer-events-none">
-                                        休息日
-                                    </div>
-                                )}
-                                {currentWeekSchedule[index]?.map((module, mIndex) => (
-                                    <ScheduledModuleCard 
-                                        key={module.instanceId}
-                                        module={module}
-                                        onClick={() => openEditModal(index, mIndex, module)}
-                                        onDelete={() => deleteModule(index, mIndex)}
-                                    />
-                                ))}
-                            </div>
-                            {/* Daily Load Indicator */}
-                            <div className="p-2 border-t text-center">
-                                <div className="text-xs font-bold text-gray-400 uppercase">負荷</div>
-                                <div className={`text-sm font-bold ${dailyLoad > 600 ? 'text-red-500' : 'text-gray-700'}`}>
-                                    {dailyLoad}
-                                </div>
-                            </div>
-                        </div>
-                    )
-                })}
+                <!-- Mobile Menu Button (Hamburger) -->
+                <button class="md:hidden p-2 text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 rounded-lg" aria-expanded="false" aria-controls="mobile-menu" onclick="document.getElementById('mobile-menu').classList.toggle('hidden')">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+                </button>
             </div>
-        );
+        </div>
+        <!-- Mobile Menu -->
+        <div class="hidden md:hidden absolute bg-white w-full shadow-lg" id="mobile-menu">
+            <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+                <a href="#themes" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50">課程主題</a>
+                <a href="#coaches" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50">導師陣容</a>
+                <a href="#pricing" class="block px-3 py-2 rounded-md text-base font-medium text-teal-600 bg-teal-50 hover:bg-teal-100">方案與報名</a>
+            </div>
+        </div>
+    </nav>
 
-        // View 2: MONTH View (Mesocycle) - 4 weeks
-        const MonthView = ({ allWeeksSchedule, viewStartIndex }) => {
-            const startWeek = Math.floor(viewStartIndex / BLOCK_WEEKS) * BLOCK_WEEKS;
-            const blockWeeks = allWeeksSchedule.slice(startWeek, startWeek + BLOCK_WEEKS);
-            
-            return (
-                <div className="overflow-x-auto overflow-y-auto p-4 bg-white rounded-xl shadow-lg min-w-[1000px]">
-                    <table className="w-full text-sm border-collapse">
-                        <thead>
-                            <tr className="bg-gray-100 sticky top-0">
-                                <th className="p-3 font-bold text-left text-gray-600 border-b border-r w-1/12">週次</th>
-                                {DAYS.map((day, index) => (
-                                    <th key={index} className="p-3 font-bold text-gray-600 border-b border-r">
-                                        {day}
-                                    </th>
-                                ))}
-                                <th className="p-3 font-bold text-gray-600 border-b w-1/12">週總負荷</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {blockWeeks.map((weekSchedule, weekOffset) => {
-                                const weekIndex = startWeek + weekOffset;
-                                const isCurrent = weekIndex === viewStartIndex;
-                                
-                                // Calculate total week load for the last column
-                                const totalWeekLoad = Object.values(weekSchedule).flat().reduce((acc, mod) => acc + calculateLoad(mod), 0);
+    <!-- 英雄區塊 (Hero Section) -->
+    <header class="bg-gray-900 text-white py-20 md:py-32 relative overflow-hidden">
+        <!-- 模擬背景圖形 (VintExercise 風格的線條/數據感) -->
+        <div class="absolute inset-0 bg-cover bg-center opacity-10" style="background-image: url('https://placehold.co/1920x1080/000000/FFFFFF/png?text=Strength+and+Conditioning+Data');"></div>
+        
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <div class="lg:w-3/4">
+                <p class="text-teal-400 text-lg font-semibold mb-3 tracking-widest">2026 教練必修學分</p>
+                <h1 class="text-5xl md:text-7xl font-extrabold leading-tight mb-6">
+                    教練專業<span class="text-teal-400">進化</span>
+                </h1>
+                <p class="text-xl md:text-2xl text-gray-300 mb-10">
+                    打破瓶頸，擴展技能樹。頂尖專業講師群，帶你打造實戰成長路徑
+                </p>
+                <a href="#pricing" class="inline-block px-10 py-4 text-lg font-bold text-gray-900 bg-teal-400 rounded-lg shadow-xl hover:bg-teal-300 transition duration-300 transform hover:scale-105">
+                    查看所有課程
+                </a>
+            </div>
+        </div>
+    </header>
 
-                                return (
-                                    <tr key={weekIndex} className={`hover:bg-blue-50/50 transition-colors ${isCurrent ? 'bg-blue-50 font-semibold' : ''}`}>
-                                        <td className="p-3 border-b border-r font-bold text-gray-800 text-left">
-                                            W{weekIndex + 1}
-                                        </td>
-                                        {[...Array(7).keys()].map(dayIndex => { // Iterate through 7 days
-                                            const modules = weekSchedule[dayIndex] || [];
-                                            return (
-                                                <td key={dayIndex} className="p-3 border-b border-r text-left align-top">
-                                                    {modules.length > 0 ? (
-                                                        <div className="space-y-1">
-                                                            {modules.map(mod => (
-                                                                <p 
-                                                                    key={mod.instanceId} 
-                                                                    className={`text-xs font-medium text-gray-800 leading-tight p-0.5 rounded border ${MODULE_TYPES[mod.type].bgColor} ${MODULE_TYPES[mod.type].borderColor}`}
-                                                                    title={MODULE_TYPES[mod.type].name}
-                                                                >
-                                                                    <span className={`text-[10px] font-bold ${MODULE_TYPES[mod.type].textColor} mr-1`}>{MODULE_TYPES[mod.type].summary}</span>
-                                                                    {mod.name}
-                                                                </p>
-                                                            ))}
-                                                        </div>
-                                                    ) : (
-                                                        <span className="text-xs text-gray-400">休息</span>
-                                                    )}
-                                                </td>
-                                            );
-                                        })}
-                                        <td className={`p-3 border-b text-center font-extrabold ${totalWeekLoad > 4000 ? 'text-red-500' : 'text-gray-700'}`}>
-                                            {Math.round(totalWeekLoad)}
-                                        </td>
-                                    </tr>
-                                )
-                            })}
-                        </tbody>
-                    </table>
+    <!-- 核心價值區塊 (Why Curated) -->
+    <section class="py-16 md:py-24 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h2 class="text-3xl md:text-4xl font-extrabold text-gray-800 mb-12 border-b-4 border-teal-500 inline-block pb-1">持續進修，與大師學習</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-10 mt-10">
+                <!-- 卡片 1：專業深度 / 臨床力 -->
+                <div class="p-6 bg-gray-50 rounded-xl shadow-lg border border-gray-100">
+                    <div class="text-4xl text-teal-600 mb-4 font-bold">SKILL DEPTH</div>
+                    <h3 class="text-xl font-extrabold mb-3 text-gray-800">專業深度：解決複雜個案的「臨床力」</h3>
+                    <p class="text-gray-600">整合物理治療的診斷視角與體能訓練的實戰策略，從根本解決客戶的痛點與限制，建立獨特的教練價值。</p>
                 </div>
-            );
-        };
-
-        // View 3: QUARTER View (Trimester) - 13 weeks Load Summary
-        const QuarterView = ({ allWeeksSchedule, viewStartIndex }) => {
-            const startWeek = Math.floor(viewStartIndex / QUARTER_WEEKS) * QUARTER_WEEKS;
-            const endWeek = Math.min(startWeek + QUARTER_WEEKS, TOTAL_WEEKS);
-            const quarterWeeks = allWeeksSchedule.slice(startWeek, endWeek);
-
-            const data = quarterWeeks.map((weekSchedule, weekOffset) => {
-                const weekIndex = startWeek + weekOffset;
-                const totalLoad = Object.values(weekSchedule).flat().reduce((acc, mod) => acc + calculateLoad(mod), 0);
-                return {
-                    name: `W${weekIndex + 1}`,
-                    load: Math.round(totalLoad),
-                };
-            });
-
-            return (
-                <div className="p-4 bg-white rounded-xl shadow-lg h-full flex flex-col">
-                    <h3 className="text-lg font-bold text-gray-700 mb-4">季週期負荷趨勢 (W{startWeek + 1} - W{endWeek})</h3>
-                    <div className="flex-1 min-h-0">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={data} margin={{ top: 10, right: 20, left: 10, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                                <XAxis dataKey="name" tick={{fill: '#9ca3af', fontSize: 10}} />
-                                <YAxis yAxisId="left" orientation="left" stroke="#3b82f6" />
-                                <Tooltip 
-                                    contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'}}
-                                    formatter={(value) => [`${value} 負荷`, '總負荷']}
-                                />
-                                <Legend />
-                                <Bar yAxisId="left" dataKey="load" name="每週總負荷" fill="#3b82f6">
-                                    {data.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.load > 4500 ? '#ef4444' : '#3b82f6'} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
+                <!-- 卡片 2：數據驅動 / 超前部署 -->
+                <div class="p-6 bg-gray-50 rounded-xl shadow-lg border border-gray-100">
+                    <div class="text-4xl text-teal-600 mb-4 font-bold">FUTURE-PROOF</div>
+                    <h3 class="text-xl font-extrabold mb-3 text-gray-800">超前部署：數據驅動的進化路徑</h3>
+                    <p class="text-gray-600">告別經驗式訓練。導入 VBT、步態分析等科學工具，讓訓練效果可視、可量化，用數據說話</p>
                 </div>
-            );
-        };
-
-        // View 4: YEAR View (Macrocycle) - 52 weeks Heatmap (Used for main view and PDF report)
-        const YearView = ({ allWeeksSchedule }) => {
-            const allWeekLoads = useMemo(() => {
-                return allWeeksSchedule.map((weekSchedule, weekIndex) => {
-                    const totalLoad = Object.values(weekSchedule).flat().reduce((acc, mod) => acc + calculateLoad(mod), 0);
-                    return { week: weekIndex + 1, load: Math.round(totalLoad) };
-                });
-            }, [allWeeksSchedule]);
-
-            // Simplified Color Logic based on Load Thresholds
-            const getColor = (load) => {
-                if (load === 0) return 'bg-gray-200';
-                if (load > 4500) return 'bg-blue-600'; // High
-                if (load > 2000) return 'bg-blue-400'; // Medium
-                return 'bg-blue-200/50'; // Low
-            };
-
-            // Group all weeks into 4 quarters of 13 weeks
-            const quarters = [
-                allWeekLoads.slice(0, 13),
-                allWeekLoads.slice(13, 26),
-                allWeekLoads.slice(26, 39),
-                allWeekLoads.slice(39, 52),
-            ];
-            
-            // Custom 13-column header for weeks 1-13 (using flex-1 for alignment)
-            const weekHeaders = [...Array(13).keys()].map(i => (
-                <div key={`col-${i}`} className={`flex-1 text-xs text-gray-500 font-bold text-center border-l border-r ${i % 4 === 3 ? 'border-r-2 border-dashed border-gray-300' : 'border-gray-200'} p-1`}>
-                    W{i + 1}
+                <!-- 卡片 3：持續進修 / 知識生態 -->
+                <div class="p-6 bg-gray-50 rounded-xl shadow-lg border border-gray-100">
+                    <div class="text-4xl text-teal-600 mb-4 font-bold">CONTINUUM</div>
+                    <h3 class="text-xl font-extrabold mb-3 text-gray-800">持續進修：連結頂尖的知識生態</h3>
+                    <p class="text-gray-600">業界頂尖講師，所有課程皆可認列 NSCA/ACE 續證學分，確保您的學習符合國際專業標準</p>
                 </div>
-            ));
+            </div>
+        </div>
+    </section>
 
-            return (
-                <div className="p-4 bg-white rounded-xl shadow-lg h-full overflow-y-auto">
-                    <h3 className="text-lg font-bold text-gray-700 mb-4">年度負荷宏週期 (52 週) - 四季概覽</h3>
+    <!-- 主題課程分區 (Thematic Zones) -->
+    <section id="themes" class="py-16 md:py-24 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl font-extrabold text-gray-800 mb-4">主題策展：選擇您的成長路徑</h2>
+                <p class="text-xl text-gray-600">我們為不同階段的教練，規劃了三條專業發展路線。所有課程皆可認列 NSCA、ACE 續證學分。</p>
+            </div>
+
+            <!-- 策展 A：進階科學與表現優化 -->
+            <div class="mb-16 p-8 bg-white rounded-2xl shadow-xl">
+                <h3 class="text-3xl font-extrabold text-teal-700 mb-6 border-b-4 pb-2 border-teal-300">
+                    A. 運動表現：進階科學與表現優化
+                </h3>
+                <!-- 內容修改：新增換行 -->
+                <p class="text-lg text-gray-600 mb-8 font-medium leading-relaxed">
+                    <span class="font-bold text-gray-800">適合對象：</span>資深教練、想訓練運動表現者。
+                    <br>
+                    <span class="font-bold text-gray-800">目標：</span>用數據思維，將客戶訓練推向更高層次。
+                </p>
+                <!-- 調整為 3 欄網格 -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                     
-                    {/* Header (1 label col + 13 weeks) */}
-                    <div className="flex bg-gray-100 rounded-t-lg border-x border-t min-w-[800px]">
-                        <div className="w-12 text-xs text-gray-500 font-bold text-center self-stretch flex items-center justify-center border-r p-1">Q/W</div>
-                        <div className="flex flex-1">
-                            {weekHeaders}
-                        </div>
+                    <!-- 課程卡片 1 (VBT) -->
+                    <div class="course-card p-6 border border-gray-200 rounded-lg bg-white shadow-md">
+                        <span class="inline-block bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full mb-3">#VBT</span>
+                        <h4 class="text-xl font-extrabold text-gray-800 mb-2">VBT 速度即力量：數據化訓練應用</h4>
+                        <p class="text-gray-600 mb-4">深入了解速度依從性訓練 (VBT) 的原理，學習如何運用速度監測儀器，精準設計課表、監測訓練疲勞。</p>
+                        <p class="font-semibold text-sm">講師: <span class="text-teal-600">SPSC / Lala</span> (VBT 專項教練)</p>
                     </div>
 
-                    {/* The 4 Quarters (52 Weeks) - Use flex to ensure all 13 weeks take equal space */}
-                    {quarters.map((quarterWeeks, qIndex) => (
-                        <div key={qIndex} className="flex border-x border-b min-w-[800px]">
-                            {/* Quarter Label */}
-                            <div className="w-12 flex items-center justify-center border-r text-sm font-bold text-gray-700 bg-gray-50">
-                                Q{qIndex + 1}
-                            </div>
-                            {/* Weeks in the Quarter (13 weeks) */}
-                            <div className="flex flex-1">
-                                {quarterWeeks.map((weekData, wIndex) => (
-                                    <div 
-                                        key={weekData.week}
-                                        className={`flex-1 h-10 text-xs font-bold flex items-center justify-center p-1 cursor-default transition-all duration-300 ${getColor(weekData.load)} ${weekData.load > 0 ? 'text-white' : 'text-gray-500'} ${wIndex % 4 === 3 ? 'border-r-2 border-dashed border-gray-300' : ''}`}
-                                        title={`W${weekData.week}: 負荷 ${weekData.load}`}
-                                    >
-                                        {/* Display label based on load range */}
-                                        {weekData.load > 0 ? (weekData.load > 4500 ? '高' : (weekData.load > 2000 ? '中' : '低')) : '休'}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    ))}
+                    <!-- 課程卡片 2 (課表安排設計) -->
+                    <div class="course-card p-6 border border-gray-200 rounded-lg bg-white shadow-md">
+                        <span class="inline-block bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full mb-3">#課表設計</span>
+                        <h4 class="text-xl font-extrabold text-gray-800 mb-2">模組化進退階課表設計</h4>
+                        <p class="text-gray-600 mb-4">動作安排是一門藝術，五大課表設計模組，用科學提升運動表現</p>
+                        <p class="font-semibold text-sm">講師: <span class="text-teal-600">林冠廷</span> (NSCA官方講師)</p>
+                    </div>
+                    
+                    <!-- 課程卡片 3 (螺旋動力研習) -->
+                    <div class="course-card p-6 border border-gray-200 rounded-lg bg-white shadow-md">
+                        <span class="inline-block bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full mb-3">#動作模式</span>
+                        <h4 class="text-xl font-extrabold text-gray-800 mb-2">Lv.1 初階螺旋動力研習</h4>
+                        <p class="text-gray-600 mb-4">掌握身體的螺旋式運動軌跡，學習如何應用於功能性力量傳遞與核心控制，提升運動效能。</p>
+                        <p class="font-semibold text-sm">講師: <span class="text-teal-600">Leo</span> (雷管研究所創辦人)</p>
+                    </div>
 
-                    {/* Legend */}
-                    <div className="mt-4 p-3 bg-gray-100 rounded-lg flex flex-wrap justify-center text-xs space-x-4">
-                        <div className="flex items-center"><span className="w-4 h-4 rounded-full bg-gray-200 mr-1"></span> 零負荷 (休)</div>
-                        <div className="flex items-center"><span className="w-4 h-4 rounded-full bg-blue-200/50 mr-1"></span> 極低負荷 (低)</div>
-                        <div className="flex items-center"><span className="w-4 h-4 rounded-full bg-blue-400 mr-1"></span> 中等負荷 (中)</div>
-                        <div className="flex items-center"><span className="w-4 h-4 rounded-full bg-blue-600 mr-1"></span> 高負荷 (高)</div>
-                        <div className="flex items-center ml-4 text-gray-500 font-normal">虛線區塊代表 4 週週期 (Mesocycle) 邊界</div>
+                </div>
+            </div>
+
+            <!-- 策展 B：精準矯正與動作修復 -->
+            <div class="mb-16 p-8 bg-white rounded-2xl shadow-xl">
+                <h3 class="text-3xl font-extrabold text-teal-700 mb-6 border-b-4 pb-2 border-teal-300">
+                    B. 矯正與恢復：精準矯正與動作修復
+                </h3>
+                <!-- 內容修改：新增換行 -->
+                <p class="text-lg text-gray-600 mb-8 font-medium leading-relaxed">
+                    <span class="font-bold text-gray-800">適合對象：</span>新手教練、想服務久坐族/有輕微疼痛客戶。
+                    <br>
+                    <span class="font-bold text-gray-800">目標：</span>學會識別並解決常見代償與姿勢問題。
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <!-- 課程卡片 3 (呼吸/體態) -->
+                    <div class="course-card p-6 border border-gray-200 rounded-lg bg-white shadow-md">
+                        <span class="inline-block bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full mb-3">#動作基石</span>
+                        <h4 class="text-xl font-extrabold text-gray-800 mb-2">呼吸與體態優化：物理治療師視角</h4>
+                        <p class="text-gray-600 mb-4">解析呼吸模式如何影響核心、脊椎與肩頸。從根源建立身體穩定度。</p>
+                        <p class="font-semibold text-sm">講師: <span class="text-teal-600">Larry</span> (物理治療師)</p>
+                    </div>
+                    <!-- 課程卡片 4 (功能性阻力) -->
+                    <div class="course-card p-6 border border-gray-200 rounded-lg bg-white shadow-md">
+                        <span class="inline-block bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full mb-3">#功能性</span>
+                        <h4 class="text-xl font-extrabold text-gray-800 mb-2">功能性阻力與矯正訓練實務</h4>
+                        <p class="text-gray-600 mb-4">學習將矯正性運動與功能性阻力訓練完美結合，設計高度客製化的訓練計畫。</p>
+                        <p class="font-semibold text-sm">講師: <span class="text-teal-600">史博比</span> (矯正專家)</p>
+                    </div>
+                    <!-- 課程卡片 5 (伸展/貼紮) -->
+                    <div class="course-card p-6 border border-gray-200 rounded-lg bg-white shadow-md">
+                        <span class="inline-block bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full mb-3">#恢復工具</span>
+                        <h4 class="text-xl font-extrabold text-gray-800 mb-2">肌筋膜伸展術</h4>
+                        <p class="text-gray-600 mb-4">掌握課前準備與課後恢復的進階工具，包含肌筋膜放鬆與運動貼紮，全方位提升客戶體驗與訓練安全。</p>
+                        <p class="font-semibold text-sm">講師: <span class="text-teal-600">陳昶綸</span> (器識訓練創辦人)</p>
                     </div>
                 </div>
-            );
-        };
+            </div>
 
+            <!-- 策展 C：特殊族群與市場藍海 - 已更新第三張卡片 -->
+            <div class="p-8 bg-white rounded-2xl shadow-xl">
+                <h3 class="text-3xl font-extrabold text-teal-700 mb-6 border-b-4 pb-2 border-teal-300">
+                    C. 特殊族群：銀髮族與孕婦
+                </h3>
+                <!-- 內容修改：新增換行 -->
+                <p class="text-lg text-gray-600 mb-8 font-medium leading-relaxed">
+                    <span class="font-bold text-gray-800">適合對象：</span>想開拓新客源、建立個人專業品牌者。
+                    <br>
+                    <span class="font-bold text-gray-800">目標：</span>掌握高齡與女性客群的專業知識，增加競爭力。
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <!-- 課程卡片 6 (銀髮族) -->
+                    <div class="course-card p-6 border border-gray-200 rounded-lg bg-white shadow-md">
+                        <span class="inline-block bg-yellow-100 text-yellow-700 text-xs font-semibold px-3 py-1 rounded-full mb-3">#銀髮市場</span>
+                        <h4 class="text-xl font-extrabold text-gray-800 mb-2">時光逆轉：高齡化銀髮族體能解方</h4>
+                        <p class="text-gray-600 mb-4">專注於防跌倒、生活功能性維持與骨質密度訓練，進入高價值客群市場。</p>
+                        <p class="font-semibold text-sm">講師: <span class="text-teal-600">Eddie / 黃品諺</span> (銀髮族訓練專家)</p>
+                    </div>
+                    <!-- 課程卡片 7 (孕產婦) -->
+                    <div class="course-card p-6 border border-gray-200 rounded-lg bg-white shadow-md">
+                        <span class="inline-block bg-yellow-100 text-yellow-700 text-xs font-semibold px-3 py-1 rounded-full mb-3">#女性專項</span>
+                        <h4 class="text-xl font-extrabold text-gray-800 mb-2">女性力量：孕產婦安全訓練與動作重啟</h4>
+                        <p class="text-gray-600 mb-4">了解孕產婦身體變化，提供安全且有效的產後核心重啟與體態恢復訓練。</p>
+                        <p class="font-semibold text-sm">講師: <span class="text-teal-600">Nikky</span> (孕產婦專家)</p>
+                    </div>
+                    <!-- 課程卡片 8 (傷後恢復) - 新增彭麗貞老師課程 -->
+                    <div class="course-card p-6 border border-gray-200 rounded-lg bg-white shadow-md">
+                        <span class="inline-block bg-yellow-100 text-yellow-700 text-xs font-semibold px-3 py-1 rounded-full mb-3">#回場機制</span>
+                        <h4 class="text-xl font-extrabold text-gray-800 mb-2">傷後恢復的回場機制</h4>
+                        <p class="text-gray-600 mb-4">掌握從復健到重返訓練場域的嚴謹評估與進階訓練流程，確保客戶安全且高效地回到運動狀態。</p>
+                        <p class="font-semibold text-sm">講師: <span class="text-teal-600">彭麗貞</span> (運動防護師)</p>
+                    </div>
+                </div>
+            </div>
 
-        // --- Main App ---
+        </div>
+    </section>
 
-        const App = () => {
-            const [allWeeksSchedule, setAllWeeksSchedule] = useState(() => {
-                const initialSchedule = new Array(TOTAL_WEEKS).fill(null).map(() => {
-                    const week = {};
-                    DAYS.forEach((_, i) => week[i] = []);
-                    return week;
-                });
-                return initialSchedule;
-            });
-            
-            // `viewStartIndex` tracks the first week of the current view (W=1, M=1, Q=1, Y=1)
-            const [viewStartIndex, setViewStartIndex] = useState(0); 
-            const [viewMode, setViewMode] = useState('WEEK');
+    <!-- 講師陣容區塊 (Coaches Roster) -->
+    <section id="coaches" class="py-16 md:py-24 bg-gray-900 text-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 class="text-4xl font-extrabold text-center text-teal-400 mb-12 border-b-4 border-teal-500 inline-block pb-1">策展導師陣容</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-8 mt-10">
 
-            const [draggedItem, setDraggedItem] = useState(null);
-            const [editingModule, setEditingModule] = useState(null);
-            const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-            const [isGenerating, setIsGenerating] = useState(false); // State for PDF generation
+                <!-- 講師卡片 1：黃品諺 -->
+                <div class="text-center p-6 bg-gray-800 rounded-xl shadow-lg border border-gray-700">
+                    <img class="w-24 h-24 mx-auto rounded-full object-cover mb-4 border-4 border-teal-500" src="https://placehold.co/100x100/115e59/FFFFFF?text=黃品諺" alt="">
+                    <h3 class="text-xl font-extrabold mb-1">黃品諺</h3>
+                    <p class="text-sm text-teal-400 mb-2">物理治療師 / CSCS</p>
+                    <p class="text-xs text-gray-500">成大物治系。專長：臨床力量訓練、銀髮族訓練。</p>
+                </div>
 
-            // Get current view mode configuration
-            const currentMode = VIEW_MODES.find(m => m.id === viewMode);
-            const step = currentMode.step;
-            const currentWeekIndex = viewMode === 'WEEK' ? viewStartIndex : 
-                                     viewMode === 'MONTH' ? viewStartIndex : 
-                                     viewStartIndex; 
+                <!-- 講師卡片 2：繡流 -->
+                <div class="text-center p-6 bg-gray-800 rounded-xl shadow-lg border border-gray-700">
+                    <img class="w-24 h-24 mx-auto rounded-full object-cover mb-4 border-4 border-teal-500" src="https://placehold.co/100x100/115e59/FFFFFF?text=繡流" alt="">
+                    <h3 class="text-xl font-extrabold mb-1">繡流 (Lala)</h3>
+                    <p class="text-sm text-teal-400 mb-2">專項體能教練 / VBT 專家</p>
+                    <p class="text-xs text-gray-500">專長：速度依從性訓練、競技體能數據化優化。</p>
+                </div>
 
-            // Derived State for Current Week 
-            const currentWeekSchedule = allWeeksSchedule[currentWeekIndex];
+                <!-- 講師卡片 3：Larry -->
+                <div class="text-center p-6 bg-gray-800 rounded-xl shadow-lg border border-gray-700">
+                    <img class="w-24 h-24 mx-auto rounded-full object-cover mb-4 border-4 border-teal-500" src="https://placehold.co/100x100/115e59/FFFFFF?text=Larry" alt="">
+                    <h3 class="text-xl font-extrabold mb-1">Larry</h3>
+                    <p class="text-sm text-teal-400 mb-2">物理治療師</p>
+                    <p class="text-xs text-gray-500">專長：動作功能分析、呼吸與體態整合矯正。</p>
+                </div>
 
-            // --- Navigation Handlers ---
-            const navigate = (direction) => {
-                const newIndex = viewStartIndex + direction * step;
-                if (newIndex >= 0 && newIndex < TOTAL_WEEKS) {
-                    setViewStartIndex(newIndex);
-                } else if (newIndex >= TOTAL_WEEKS) {
-                    setViewStartIndex(TOTAL_WEEKS - step); // Cap at the last possible start
-                } else if (newIndex < 0) {
-                    setViewStartIndex(0); // Cap at the first possible start
-                }
-            };
-
-            const goToPrevious = () => navigate(-1);
-            const goToNext = () => navigate(1);
-
-            // --- Drag & Drop Handlers (Only enabled in WEEK view) ---
-            const handleDragStart = (e, module) => {
-                if (viewMode === 'WEEK') {
-                    setDraggedItem(module);
-                    e.dataTransfer.effectAllowed = "copy";
-                } else {
-                    e.preventDefault();
-                }
-            };
-
-            const handleDragOver = (e) => {
-                if (viewMode === 'WEEK') {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = "copy";
-                    e.currentTarget.classList.add('drag-over');
-                }
-            };
-
-            const handleDragLeave = (e) => {
-                if (viewMode === 'WEEK') {
-                    e.currentTarget.classList.remove('drag-over');
-                }
-            };
-
-            const handleDrop = (e, dayIndex) => {
-                if (viewMode === 'WEEK') {
-                    e.preventDefault();
-                    e.currentTarget.classList.remove('drag-over');
-                    
-                    if (draggedItem) {
-                        const newModule = {
-                            ...draggedItem,
-                            instanceId: Date.now() + Math.random(), // Unique ID for this instance
-                        };
-                        
-                        setAllWeeksSchedule(prev => {
-                            const newWeeks = [...prev];
-                            // Copy and update the current week's schedule for the specific day
-                            const currentWeek = { ...newWeeks[currentWeekIndex] };
-                            currentWeek[dayIndex] = [...currentWeek[dayIndex], newModule];
-                            newWeeks[currentWeekIndex] = currentWeek;
-                            return newWeeks;
-                        });
-                    }
-                    setDraggedItem(null);
-                }
-            };
-
-            // --- Module Actions ---
-            const deleteModule = (dayIndex, moduleIndex) => {
-                setAllWeeksSchedule(prev => {
-                    const newWeeks = [...prev];
-                    const currentWeek = { ...newWeeks[currentWeekIndex] };
-                    const newDayModules = [...currentWeek[dayIndex]];
-                    newDayModules.splice(moduleIndex, 1);
-                    currentWeek[dayIndex] = newDayModules;
-                    newWeeks[currentWeekIndex] = currentWeek;
-                    return newWeeks;
-                });
-            };
-
-            const openEditModal = (dayIndex, moduleIndex, module) => {
-                setEditingModule({ 
-                    weekIndex: currentWeekIndex, 
-                    dayIndex, 
-                    moduleIndex, 
-                    ...module 
-                });
-                setIsEditModalOpen(true);
-            };
-
-            const saveModuleChanges = (updatedModule) => {
-                setAllWeeksSchedule(prev => {
-                    const newWeeks = [...prev];
-                    const currentWeek = { ...newWeeks[editingModule.weekIndex] };
-                    const newDay = [...currentWeek[editingModule.dayIndex]];
-                    newDay[editingModule.moduleIndex] = updatedModule;
-                    currentWeek[editingModule.dayIndex] = newDay;
-                    newWeeks[editingModule.weekIndex] = currentWeek;
-                    return newWeeks;
-                });
-                setIsEditModalOpen(false);
-                setEditingModule(null);
-            };
-
-            const clearSchedule = (scope) => {
-                if(scope === 'WEEK' && confirm(`確定要清空第 ${currentWeekIndex + 1} 週的課表嗎？`)) {
-                    setAllWeeksSchedule(prev => {
-                        const newWeeks = [...prev];
-                        const resetWeek = {};
-                        DAYS.forEach((_, i) => resetWeek[i] = []);
-                        newWeeks[currentWeekIndex] = resetWeek;
-                        return newWeeks;
-                    });
-                } else if (scope === 'YEAR' && confirm('確定要清空**整年度 (52 週)** 的課表嗎？此動作無法復原！')) {
-                    const initialSchedule = new Array(TOTAL_WEEKS).fill(null).map(() => {
-                        const week = {};
-                        DAYS.forEach((_, i) => week[i] = []);
-                        return week;
-                    });
-                    setAllWeeksSchedule(initialSchedule);
-                    setViewStartIndex(0);
-                }
-            };
-
-            // --- PDF Generation Handler (New Feature) ---
-            const generatePdfReport = async () => {
-                if (isGenerating) return;
-
-                setIsGenerating(true);
-                // Target the hidden div that contains the YearView structure
-                const element = document.getElementById('report-content-to-capture');
+                <!-- 講師卡片 4：Nikky -->
+                <div class="text-center p-6 bg-gray-800 rounded-xl shadow-lg border border-gray-700">
+                    <img class="w-24 h-24 mx-auto rounded-full object-cover mb-4 border-4 border-teal-500" src="https://placehold.co/100x100/115e59/FFFFFF?text=Nikky" alt="">
+                    <h3 class="text-xl font-extrabold mb-1">Nikky</h3>
+                    <p class="text-sm text-teal-400 mb-2">孕產婦健身專家</p>
+                    <p class="text-xs text-gray-500">專長：女性動作優化、產後核心功能重啟。</p>
+                </div>
                 
-                try {
-                    // 1. Capture the HTML content as a canvas image
-                    const canvas = await html2canvas(element, { 
-                        scale: 2, // Improve quality
-                        logging: false,
-                        windowWidth: 1000, 
-                        useCORS: true,
-                        backgroundColor: '#ffffff' // Ensure white background
-                    });
-
-                    const imgData = canvas.toDataURL('image/png');
-                    const { jsPDF } = window.jspdf;
-                    const pdf = new jsPDF('l', 'mm', 'a4'); // Landscape A4 (297x210 mm)
-
-                    // Dimensions for PDF
-                    const pdfWidth = 280; // slightly less than A4 width
-                    const pdfHeight = 195; // slightly less than A4 height
-                    const imgWidth = pdfWidth; 
-                    const imgHeight = canvas.height * imgWidth / canvas.width;
-                    let heightLeft = imgHeight;
-                    let position = 10; // Initial Y position
-
-                    // Add Header
-                    pdf.setFont('helvetica', 'bold');
-                    pdf.setFontSize(16);
-                    pdf.text('年度訓練週期化報表 (52 週)', 10, 10);
-                    pdf.setFont('helvetica', 'normal');
-                    pdf.setFontSize(10);
-                    pdf.text(`產生日期: ${new Date().toLocaleDateString('zh-TW')}`, 10, 16);
-                    pdf.line(10, 18, 287, 18); // Separator line
-                    position = 20;
-
-                    // 2. Add image to PDF, handling multiple pages
-                    
-                    if (imgHeight < pdfHeight) {
-                         // Single page
-                        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
-                    } else {
-                        // Multi-page handling
-                        let pageCount = 0;
-                        while (heightLeft > 0) {
-                            if (pageCount > 0) {
-                                pdf.addPage();
-                            }
-                            // Calculate where to crop the image for the current page
-                            const yPosition = - (imgHeight - heightLeft); 
-                            
-                            pdf.addImage(imgData, 'PNG', 10, yPosition + position, imgWidth, imgHeight);
-                            
-                            heightLeft -= pdfHeight;
-                            pageCount++;
-                        }
-                    }
-
-                    // 3. Save the PDF
-                    pdf.save('年度訓練週期化報表.pdf');
-
-                } catch (error) {
-                    console.error("PDF 產生失敗:", error);
-                    alert('PDF 報告產生失敗。請檢查控制台錯誤訊息。');
-                } finally {
-                    setIsGenerating(false);
-                }
-            };
-            
-            // --- Calculation for Charts (WEEK view analysis) ---
-            const chartData = useMemo(() => {
-                return DAYS.map((dayName, index) => {
-                    const modules = allWeeksSchedule[currentWeekIndex]?.[index] || [];
-                    const totalLoad = modules.reduce((acc, m) => acc + calculateLoad(m), 0);
-                    return {
-                        name: dayName,
-                        load: Math.round(totalLoad),
-                        modules: modules.length
-                    };
-                });
-            }, [allWeeksSchedule, currentWeekIndex]);
-
-            const totalWeeklyLoad = chartData.reduce((acc, d) => acc + d.load, 0);
-
-            // --- Render Logic ---
-            const renderView = () => {
-                switch (viewMode) {
-                    case 'WEEK':
-                        return <WeekView 
-                            currentWeekSchedule={currentWeekSchedule}
-                            chartData={chartData}
-                            handleDragOver={handleDragOver}
-                            handleDragLeave={handleDragLeave}
-                            handleDrop={handleDrop}
-                            openEditModal={openEditModal}
-                            deleteModule={deleteModule}
-                        />;
-                    case 'MONTH':
-                        return <MonthView allWeeksSchedule={allWeeksSchedule} viewStartIndex={viewStartIndex} />;
-                    case 'QUARTER':
-                        return <QuarterView allWeeksSchedule={allWeeksSchedule} viewStartIndex={viewStartIndex} />;
-                    case 'YEAR':
-                        return <YearView allWeeksSchedule={allWeeksSchedule} />;
-                    default:
-                        return null;
-                }
-            };
-            
-            // Determine the range label for the navigation header
-            const startDisplay = viewStartIndex + 1;
-            let endDisplay = viewStartIndex + step;
-            if (viewMode === 'YEAR') {
-                endDisplay = TOTAL_WEEKS;
-            } else {
-                endDisplay = Math.min(endDisplay, TOTAL_WEEKS);
-            }
-
-            const headerRange = viewMode === 'YEAR' ? '1 - 52' : `${startDisplay} - ${endDisplay}`;
-
-
-            // Determine if navigation buttons should be disabled
-            const isPrevDisabled = viewStartIndex === 0 || viewMode === 'YEAR';
-            const isNextDisabled = viewStartIndex + step >= TOTAL_WEEKS || viewMode === 'YEAR';
-
-            return (
-                <div className="flex h-screen overflow-hidden">
-                    {/* Sidebar */}
-                    <div className="w-64 bg-white border-r border-gray-200 flex flex-col z-10 shadow-lg">
-                        <div className="p-5 border-b border-gray-100 bg-gray-50">
-                            <h1 className="text-xl font-extrabold text-gray-800 tracking-tight">
-                                <span className="text-blue-600">週期化</span>實驗室
-                            </h1>
-                            <p className="text-xs text-gray-500 mt-1">拖曳模組至右側課表</p>
-                        </div>
-                        
-                        <div className="flex-1 overflow-y-auto p-4">
-                            <h2 className="text-xs font-bold text-gray-400 uppercase mb-3 tracking-wider">模組庫</h2>
-                            {INITIAL_MODULES.map(module => (
-                                <DraggableModule 
-                                    key={module.id} 
-                                    module={module} 
-                                    onDragStart={handleDragStart} 
-                                />
-                            ))}
-
-                            <div className="mt-8 bg-blue-50 p-3 rounded-lg border border-blue-100">
-                                <h3 className="text-sm font-bold text-blue-800 mb-1 flex items-center gap-1"><Icons.Clock /> 注意事項</h3>
-                                <p className="text-xs text-blue-600 leading-relaxed">
-                                    只有在 **週視圖 (WEEK)** 下，才能拖曳、編輯和刪除訓練模組。
-                                </p>
-                            </div>
-                        </div>
-                        
-                        <div className="p-4 border-t border-gray-200 space-y-2">
-                            <button 
-                                onClick={() => generatePdfReport()}
-                                disabled={isGenerating}
-                                className={`w-full py-2 px-4 text-sm font-bold rounded transition-colors flex items-center justify-center gap-2 ${isGenerating ? 'bg-blue-400 text-white cursor-wait' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
-                            >
-                                {isGenerating ? '報告產生中...' : <><Icons.FileText /> 輸出 PDF 報告</>}
-                            </button>
-                            <button 
-                                onClick={() => clearSchedule('WEEK')}
-                                disabled={viewMode !== 'WEEK'}
-                                className={`w-full py-2 px-4 text-sm font-bold rounded transition-colors flex items-center justify-center gap-2 ${viewMode === 'WEEK' ? 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
-                            >
-                                <Icons.Trash /> 清空當前 {currentMode.name}
-                            </button>
-                            <button 
-                                onClick={() => clearSchedule('YEAR')}
-                                className="w-full py-2 px-4 bg-gray-100 text-gray-600 text-sm font-bold rounded hover:bg-red-50 hover:text-red-600 transition-colors flex items-center justify-center gap-2"
-                            >
-                                <Icons.Trash /> 清空年度計畫
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Main Content */}
-                    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-gray-50/50">
-                        
-                        {/* Periodization Navigation Header */}
-                        <div className="bg-white border-b border-gray-200 p-4 flex items-center justify-between shrink-0 shadow-sm">
-                            
-                            {/* View Mode Selector */}
-                            <div className="flex items-center space-x-2 p-1 bg-gray-100 rounded-lg">
-                                {VIEW_MODES.map(mode => (
-                                    <button
-                                        key={mode.id}
-                                        onClick={() => setViewMode(mode.id)}
-                                        className={`px-3 py-1.5 text-sm font-semibold rounded-md transition-all ${
-                                            viewMode === mode.id 
-                                            ? 'bg-blue-600 text-white shadow-md' 
-                                            : 'text-gray-600 hover:bg-gray-200'
-                                        }`}
-                                    >
-                                        {mode.name.split(' ')[0]}
-                                    </button>
-                                ))}
-                            </div>
-
-
-                            {/* Navigation and Range Display */}
-                            <div className="flex items-center space-x-3 bg-gray-100 p-2 rounded-lg border">
-                                <button 
-                                    onClick={goToPrevious} 
-                                    disabled={isPrevDisabled}
-                                    className="p-1 rounded-full text-gray-600 hover:bg-gray-200 disabled:opacity-30 transition-colors"
-                                ><Icons.ChevronLeft /></button>
-                                <div className="text-center w-40">
-                                    <p className="text-xs text-gray-500 font-bold uppercase">{currentMode.name} 範圍</p>
-                                    <p className="text-xl font-extrabold text-blue-600">
-                                        {currentMode.label}{headerRange}
-                                    </p>
-                                </div>
-                                <button 
-                                    onClick={goToNext} 
-                                    disabled={isNextDisabled}
-                                    className="p-1 rounded-full text-gray-600 hover:bg-gray-200 disabled:opacity-30 transition-colors"
-                                ><Icons.ChevronRight /></button>
-                            </div>
-                        </div>
-
-
-                        {/* Content Area - Renders selected view */}
-                        <div className="flex-1 overflow-x-auto overflow-y-auto p-6">
-                            {renderView()}
-                        </div>
-
-                        {/* Analytics Panel (Only visible in WEEK mode) */}
-                        {viewMode === 'WEEK' && (
-                            <div className="h-64 bg-white border-t border-gray-200 p-6 flex gap-8 shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
-                                {/* Microcycle Load Chart (Current Week) */}
-                                <div className="flex-1 min-w-[300px]">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <h3 className="font-bold text-gray-700 flex items-center gap-2">
-                                            <Icons.Activity /> 本週負荷趨勢 (W{currentWeekIndex + 1})
-                                        </h3>
-                                    </div>
-                                    <div className="h-40 w-full">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb"/>
-                                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 12}} dy={10} />
-                                                <YAxis axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 12}} />
-                                                <Tooltip 
-                                                    contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'}}
-                                                    formatter={(value) => [value, '負荷指數']}
-                                                />
-                                                <Line 
-                                                    type="monotone" 
-                                                    dataKey="load" 
-                                                    stroke="#3b82f6" 
-                                                    strokeWidth={3}
-                                                    dot={{r: 4, fill: '#3b82f6', strokeWidth: 2, stroke: '#fff'}}
-                                                    activeDot={{r: 6}} 
-                                                />
-                                            </LineChart>
-                                        </ResponsiveContainer>
-                                    </div>
-                                </div>
-
-                                {/* Key Stats */}
-                                <div className="w-56 border-l pl-8 border-gray-100 flex flex-col justify-center space-y-3">
-                                    <div>
-                                        <p className="text-xs text-gray-400 uppercase font-bold">每週總負荷 (W{currentWeekIndex + 1})</p>
-                                        <p className="text-2xl font-extrabold text-gray-800">{Math.round(totalWeeklyLoad)}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-gray-400 uppercase font-bold">訓練日數</p>
-                                        <p className="text-2xl font-extrabold text-gray-800">
-                                            {chartData.filter(d => d.modules > 0).length} <span className="text-sm text-gray-400 font-normal">/ 7</span>
-                                        </p>
-                                    </div>
-                                </div>
-
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Hidden div for PDF capture (Renders the YearView structure) */}
-                    <div id="report-content-to-capture" className="absolute -left-[9999px] w-[1000px] p-6 bg-white">
-                        <YearView allWeeksSchedule={allWeeksSchedule} />
-                    </div>
-
-                    {/* Modals */}
-                    <EditModal 
-                        isOpen={isEditModalOpen} 
-                        onClose={() => setIsEditModalOpen(false)} 
-                        module={editingModule}
-                        onSave={saveModuleChanges}
-                    />
+                <!-- 講師卡片 5：Leo -->
+                <div class="text-center p-6 bg-gray-800 rounded-xl shadow-lg border border-gray-700">
+                    <img class="w-24 h-24 mx-auto rounded-full object-cover mb-4 border-4 border-teal-500" src="https://placehold.co/100x100/115e59/FFFFFF?text=Leo" alt="">
+                    <h3 class="text-xl font-extrabold mb-1">Leo</h3>
+                    <p class="text-sm text-teal-400 mb-2">雷管研究所創辦人</p>
+                    <p class="text-xs text-gray-500">專長：螺旋動力訓練、身體動作模式評估。</p>
                 </div>
-            );
-        };
+                
+                <!-- 講師卡片 6：彭麗貞 - 新增 -->
+                <div class="text-center p-6 bg-gray-800 rounded-xl shadow-lg border border-gray-700">
+                    <img class="w-24 h-24 mx-auto rounded-full object-cover mb-4 border-4 border-teal-500" src="https://placehold.co/100x100/115e59/FFFFFF?text=彭麗貞" alt="">
+                    <h3 class="text-xl font-extrabold mb-1">彭麗貞</h3>
+                    <p class="text-sm text-teal-400 mb-2">運動防護師</p>
+                    <p class="text-xs text-gray-500">專長：運動貼紮、傷後回場機制與訓練銜接。</p>
+                </div>
+                
+            </div>
+        </div>
+    </section>
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
+    <!-- 報名與方案區塊 (Pricing & CTA) -->
+    <section id="pricing" class="py-16 md:py-24 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h2 class="text-4xl font-extrabold text-gray-800 mb-4 border-b-4 border-teal-500 inline-block pb-1">選擇您的進化方案</h2>
+            <p class="text-xl text-gray-600 mb-16 mt-4">早鳥優惠倒數計時！限時折扣，系統性提升您的教練價值。</p>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                
+                <!-- 方案 1：單堂選修 -->
+                <div class="p-8 border-4 border-gray-100 rounded-xl shadow-lg course-card">
+                    <p class="text-lg font-semibold text-gray-500 mb-3">方案 1</p>
+                    <h3 class="text-3xl font-extrabold text-gray-800 mb-5">單堂選修</h3>
+                    <p class="text-4xl font-extrabold text-teal-600 mb-6">NT$ 3,800 <span class="text-xl text-gray-500 font-medium">/ 堂</span></p>
+                    <ul class="text-left text-gray-600 space-y-3 mb-8 text-sm">
+                        <li>✅ 自由選擇任一門課程</li>
+                        <li>✅ NSCA CEU 學分 (依課程時數)</li>
+                        <li class="line-through text-gray-400">無組合折扣</li>
+                        <li class="line-through text-gray-400">無教練群組問答權限</li>
+                    </ul>
+                    <a href="#" class="block w-full py-3 bg-gray-200 text-gray-700 font-extrabold rounded-lg hover:bg-gray-300 transition duration-150">
+                        選擇單堂
+                    </a>
+                </div>
+
+                <!-- 方案 2：專項專家套組 (推薦) -->
+                <div class="relative p-8 border-4 border-teal-500 rounded-xl shadow-2xl bg-teal-50 transform scale-105">
+                    <div class="absolute -top-4 right-0 bg-red-500 text-white text-sm font-bold px-4 py-1 rounded-bl-lg rounded-tr-xl">最受歡迎</div>
+                    <p class="text-lg font-semibold text-teal-600 mb-3">方案 2</p>
+                    <h3 class="text-3xl font-extrabold text-gray-800 mb-5">專項專家套組</h3>
+                    <p class="text-4xl font-extrabold text-red-500 line-through mb-1">NT$ 15,200</p>
+                    <p class="text-5xl font-extrabold text-teal-600 mb-6">NT$ 12,920 <span class="text-xl text-gray-500 font-medium">/ 4 堂</span></p>
+                    <p class="text-sm font-bold text-red-500 mb-4">(立享 85 折優惠)</p>
+                    <ul class="text-left text-gray-700 space-y-3 mb-8 text-sm">
+                        <li>✅ 任選一個主題展區 (A, B, 或 C) 的 **4 門** 課程</li>
+                        <li>✅ NSCA CEU 學分完整認證</li>
+                        <li>✅ 教練專屬 Line 群組問答權限 (3 個月)</li>
+                        <li class="line-through text-gray-500">不含所有課程</li>
+                    </ul>
+                    <a href="#" class="block w-full py-4 bg-teal-600 text-white font-extrabold rounded-lg hover:bg-teal-700 transition duration-150 transform hover:scale-[1.02]">
+                        立即搶購 (85 折)
+                    </a>
+                </div>
+
+                <!-- 方案 3：全能力進化大師包 -->
+                <div class="p-8 border-4 border-gray-100 rounded-xl shadow-lg course-card">
+                    <p class="text-lg font-semibold text-gray-500 mb-3">方案 3</p>
+                    <h3 class="text-3xl font-extrabold text-gray-800 mb-5">全能力進化大師包</h3>
+                    <p class="text-4xl font-extrabold text-teal-600 mb-6">價格請洽詢</p>
+                    <ul class="text-left text-gray-600 space-y-3 mb-8 text-sm">
+                        <li>✅ 策展內**所有課程**打包 (最高折扣 75 折)</li>
+                        <li>✅ NSCA 續證學分一次補齊</li>
+                        <li>✅ 教練專屬 Line 群組問答權限 (12 個月)</li>
+                        <li>✅ 贈送線上助教輔導時間 (2 小時)</li>
+                    </ul>
+                    <a href="#" class="block w-full py-3 bg-gray-200 text-gray-700 font-extrabold rounded-lg hover:bg-gray-300 transition duration-150">
+                        聯繫客服洽詢
+                    </a>
+                </div>
+
+            </div>
+        </div>
+    </section>
+    
+    <!-- 頁尾 -->
+    <footer class="bg-gray-900 text-white py-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <p class="mb-4 text-sm text-gray-400">© 2026 EVOLVE. 教練進化策展. All Rights Reserved. | 專業訓練，持續學習。</p>
+            <p class="text-xs text-gray-500">課程形式：線上直播與錄播回放。請確認您的報名資料，課程連結將於開課前三天寄出。</p>
+        </div>
+    </footer>
+
 </body>
 </html>
