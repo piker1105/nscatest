@@ -15,11 +15,30 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         @media print {
-            @page { margin: 5mm; size: A4 landscape; }
-            body { background: white !important; margin: 0; padding: 0; }
+            @page { 
+                margin: 0; 
+                size: A4 landscape; 
+            }
+            body { 
+                background: white !important; 
+                margin: 0; 
+                padding: 0;
+                /* 讓內容在列印頁面垂直居中 */
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                min-height: 100vh !important;
+            }
             .print-hidden { display: none !important; }
             .print-block { display: block !important; }
             .print-w-full { width: 100% !important; }
+            
+            /* 確保預覽容器在列印時不帶陰影與多餘邊距 */
+            .printable-area {
+                shadow: none !important;
+                margin: 0 !important;
+                padding: 10mm !important;
+            }
         }
         /* 隱藏 Chrome/Safari 的數字輸入箭頭 */
         input::-webkit-outer-spin-button,
@@ -197,7 +216,7 @@
 
                         {/* 預覽區 */}
                         <div className="w-full lg:w-2/3 flex justify-center bg-gray-200 lg:bg-transparent print-w-full print:bg-white print:block">
-                            <div className="bg-white shadow-lg print:shadow-none w-full max-w-[297mm] min-h-[210mm] p-[10mm] print:p-0 text-black box-border">
+                            <div className="printable-area bg-white shadow-lg print:shadow-none w-full max-w-[297mm] min-h-[210mm] p-[10mm] print:p-0 text-black box-border">
                                 <div className="text-center mb-6">
                                     <h1 className="text-2xl font-bold tracking-widest mb-1">運釀股份有限公司</h1>
                                     <h2 className="text-xl font-medium border-b-2 border-black inline-block pb-1 px-4">員工請款單 Payment Request</h2>
