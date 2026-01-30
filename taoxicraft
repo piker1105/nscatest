@@ -60,7 +60,7 @@
 
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script>
-    liff.init({ liffId: "你的_LIFF_ID" }).catch(err => console.error(err));
+    liff.init({ liffId: "2009015302-BTFJWoRf" }).catch(err => console.error(err));
 
     document.getElementById('bookingForm').onsubmit = function(e) {
       e.preventDefault();
