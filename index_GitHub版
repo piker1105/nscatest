@@ -59,19 +59,19 @@
                     <div class="flex-1"><p class="font-bold text-sm">阿美陶偶花器</p><p class="text-[#8c7851] font-bold text-xs mt-1">$1,380</p></div>
                 </div>
                 <div onclick="selectCourse(this, '錫光皿體驗', 1380)" class="course-btn glass-card p-3 flex items-center gap-4">
-                    <img src="https://via.placeholder.com/80x60/8c7851/ffffff?text=錫光皿" alt="錫光皿體驗" class="course-img">
+                    <img src="https://static.wixstatic.com/media/b30cc0_874ccc51a5d74904b0db8497a22b4a9b~mv2.jpg" alt="錫光皿體驗" class="course-img">
                     <div class="flex-1"><p class="font-bold text-sm">錫光皿體驗</p><p class="text-[#8c7851] font-bold text-xs mt-1">$1,380</p></div>
                 </div>
                 <div onclick="selectCourse(this, '錫銀叉體驗', 1680)" class="course-btn glass-card p-3 flex items-center gap-4">
-                    <img src="https://via.placeholder.com/80x60/8c7851/ffffff?text=錫銀叉" alt="錫銀叉體驗" class="course-img">
+                    <img src="https://static.wixstatic.com/media/b30cc0_d9441e5cc2ec4d1ab3e6e42227461352~mv2.jpg" alt="錫銀叉體驗" class="course-img">
                     <div class="flex-1"><p class="font-bold text-sm">錫銀叉體驗</p><p class="text-[#8c7851] font-bold text-xs mt-1">$1,680</p></div>
                 </div>
                 <div onclick="selectCourse(this, '小錫石金屬體驗', 880)" class="course-btn glass-card p-3 flex items-center gap-4">
-                    <img src="https://via.placeholder.com/80x60/8c7851/ffffff?text=小錫石" alt="小錫石金屬體驗" class="course-img">
+                    <img src="https://static.wixstatic.com/media/b30cc0_7b66936272384f72844912fc4ecf0cbc~mv2.jpg" alt="小錫石金屬體驗" class="course-img">
                     <div class="flex-1"><p class="font-bold text-sm">小錫石金屬體驗</p><p class="text-[#8c7851] font-bold text-xs mt-1">$880</p></div>
                 </div>
                 <div onclick="selectCourse(this, '錫銀咖啡勺', 1680)" class="course-btn glass-card p-3 flex items-center gap-4">
-                    <img src="https://via.placeholder.com/80x60/8c7851/ffffff?text=咖啡勺" alt="錫銀咖啡勺" class="course-img">
+                    <img src="https://static.wixstatic.com/media/b30cc0_b42150da78dc4e34a445b6e29913bec2~mv2.png" alt="錫銀咖啡勺" class="course-img">
                     <div class="flex-1"><p class="font-bold text-sm">錫銀咖啡勺</p><p class="text-[#8c7851] font-bold text-xs mt-1">$1,680</p></div>
                 </div>
             </div>
