@@ -1,0 +1,488 @@
+/**
+ * 陶錫工藝 - LINE 預約系統（配合 GitHub Pages）
+ * 前端：GitHub Pages (LIFF)
+ * 後端：Google Apps Script (API)
+ */
+
+const CHANNEL_ACCESS_TOKEN = "cbZNFpRMbS0KSDUvUqNiM/qdfWxwHdHkSYHtw3QRIOmYKaBNahZmhi+6Sl2tDEqtvjS3xnJUvhDRxPkrD4F4lgbuMOx9oxjLRTs5PcB894yHGv+K1O89Fquh1OGTTM4Lw4G74HuRnUGUzktnt7SnZwdB04t89/1O/w1cDnyilFU=";
+const ADMIN_EMAIL = "taoxicraft@gmail.com";
+const LIFF_URL = "https://liff.line.me/2009015302-1L2Zkt3m";
+const SENDER_NAME = "陶錫工藝 Taoxi Craft";
+const HEADER_IMAGE_URL = "https://static.wixstatic.com/media/1d54c4_c8d15caa601443aca69d05017b62c46d~mv2.jpg/v1/fill/w_1000,h_464,al_c,q_80/header.jpg";
+
+// 🔧 允許的來源（CORS）- 您的 GitHub Pages URL
+const ALLOWED_ORIGINS = [
+  'https://您的GitHub用戶名.github.io',
+  'http://localhost:8000'  // 本地測試
+];
+
+/**
+ * 處理 GET 請求（不再需要，前端在 GitHub）
+ */
+function doGet(e) {
+  return ContentService.createTextOutput('API Ready').setMimeType(ContentService.MimeType.TEXT);
+}
+
+/**
+ * 處理 POST 請求（接收來自 GitHub Pages 的表單資料）
+ */
+function doPost(e) {
+  try {
+    // 處理 LINE Webhook
+    if (e.postData && e.postData.contents) {
+      const data = JSON.parse(e.postData.contents);
+      
+      // 檢查是否為 LINE 事件
+      if (data.events) {
+        return handleLineWebhook(data);
+      }
+      
+      // 否則視為表單提交
+      return handleFormSubmission(data);
+    }
+    
+    // 處理 URL 參數（來自 GitHub Pages 的 fetch 請求）
+    const action = e.parameter.action;
+    
+    if (action === 'processForm') {
+      const params = JSON.parse(e.postData.contents);
+      return handleFormSubmission(params);
+    }
+    
+    return ContentService.createTextOutput('Unknown request').setMimeType(ContentService.MimeType.TEXT);
+    
+  } catch (err) {
+    Logger.log('doPost Error: ' + err.toString());
+    return ContentService.createTextOutput('Error: ' + err.toString()).setMimeType(ContentService.MimeType.TEXT);
+  }
+}
+
+/**
+ * 處理 LINE Webhook 事件
+ */
+function handleLineWebhook(data) {
+  const events = data.events;
+  
+  if (events && events.length > 0) {
+    events.forEach(event => {
+      if (event.type === 'message' && event.message.type === 'text') {
+        const text = event.message.text.trim();
+        
+        Logger.log('收到訊息: ' + text);
+        
+        if (text === '預約課程') {
+          Logger.log('發送 LIFF URL: ' + LIFF_URL);
+          replyStartBookingFlex(event.replyToken, LIFF_URL);
+        }
+      }
+    });
+  }
+  
+  return ContentService.createTextOutput(JSON.stringify({status: 'ok'}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * 處理表單提交
+ */
+function handleFormSubmission(params) {
+  try {
+    Logger.log('===== 處理表單提交 =====');
+    Logger.log('收到的參數: ' + JSON.stringify(params));
+    
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName("預約紀錄") || ss.getSheets()[0];
+    
+    const priceMap = {
+      '花草拓印陶盤': 1180,
+      '個性化寵物碗': 1580,
+      '阿美陶偶花器': 1380,
+      '錫光皿體驗': 1380,
+      '錫銀叉體驗': 1680,
+      '小錫石金屬體驗': 880,
+      '錫銀咖啡勺': 1680
+    };
+    
+    const qty = parseInt(params.peopleCount) || 0;
+    const total = (priceMap[params.course] || 0) * qty;
+    params.totalPrice = total;
+    
+    const uid = params.lineUid || params.uid || '';
+    
+    Logger.log('UID: ' + uid);
+    Logger.log('課程: ' + params.course);
+    Logger.log('總金額: ' + total);
+    
+    if (!uid) {
+      Logger.log('❌ 錯誤：UID 為空');
+      return ContentService.createTextOutput('Error: 缺少 UID').setMimeType(ContentService.MimeType.TEXT);
+    }
+    
+    const now = new Date();
+    sheet.appendRow([
+      now,
+      params.classDate,
+      params.session,
+      params.course,
+      qty,
+      total,
+      params.realName,
+      params.phone,
+      params.email,
+      uid
+    ]);
+    
+    Logger.log('試算表新增成功');
+    
+    params.lineUid = uid;
+    
+    sendAdminEmail(params);
+    Logger.log('管理員郵件已寄送');
+    
+    sendUserEmail(params);
+    Logger.log('學員郵件已寄送');
+    
+    sendInitialFlex(params);
+    Logger.log('LINE Flex Message 已發送');
+    
+    Logger.log('===== 處理完成 =====');
+    
+    return ContentService.createTextOutput('Success').setMimeType(ContentService.MimeType.TEXT);
+    
+  } catch (e) {
+    Logger.log('處理錯誤: ' + e.toString());
+    return ContentService.createTextOutput('Error: ' + e.toString()).setMimeType(ContentService.MimeType.TEXT);
+  }
+}
+
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu('📅 預約管理')
+    .addItem('發送：預約審核通過通知', 'sendApprovalNotificationFromSheet')
+    .addToUi();
+}
+
+function replyStartBookingFlex(token, url) {
+  const flex = {
+    "type": "bubble",
+    "hero": {
+      "type": "image",
+      "url": HEADER_IMAGE_URL,
+      "size": "full",
+      "aspectRatio": "20:9",
+      "aspectMode": "cover"
+    },
+    "body": {
+      "type": "box",
+      "layout": "vertical",
+      "spacing": "md",
+      "contents": [
+        {
+          "type": "text",
+          "text": "TAOXI CRAFT",
+          "weight": "bold",
+          "color": "#8c7851",
+          "size": "sm"
+        },
+        {
+          "type": "text",
+          "text": "開始預約課程",
+          "weight": "bold",
+          "size": "xl",
+          "margin": "md"
+        },
+        {
+          "type": "text",
+          "text": "點擊下方按鈕填寫預約資料，我們將為您保留名額。",
+          "size": "sm",
+          "color": "#888888",
+          "wrap": true
+        }
+      ]
+    },
+    "footer": {
+      "type": "box",
+      "layout": "vertical",
+      "contents": [
+        {
+          "type": "button",
+          "action": {
+            "type": "uri",
+            "label": "立即填寫預約單",
+            "uri": url
+          },
+          "style": "primary",
+          "color": "#8c7851",
+          "height": "sm"
+        }
+      ]
+    }
+  };
+  
+  fetchLineApi('reply', {
+    "replyToken": token,
+    "messages": [{
+      "type": "flex",
+      "altText": "開始預約課程",
+      "contents": flex
+    }]
+  });
+}
+
+function sendAdminEmail(p) {
+  const subject = `【新預約通知】 ${p.realName} - ${p.course}`;
+  const body = `收到一筆新的課程預約:\n\n` +
+    `預約人:${p.realName}\n` +
+    `聯絡電話:${p.phone}\n` +
+    `Email:${p.email}\n` +
+    `課程項目:${p.course}\n` +
+    `預約日期:${p.classDate}\n` +
+    `預約場次:${p.session}\n` +
+    `預約人數:${p.peopleCount} 位\n` +
+    `總金額:NT$ ${p.totalPrice.toLocaleString()}\n` +
+    `Line UID:${p.lineUid}`;
+  
+  MailApp.sendEmail({
+    to: ADMIN_EMAIL,
+    subject: subject,
+    body: body,
+    name: SENDER_NAME
+  });
+}
+
+function sendUserEmail(p) {
+  const subject = `【陶錫工藝】預約確認通知 - 課程:${p.course}`;
+  const body = `${p.realName} 您好，感謝您對陶錫工藝的支持!\n\n` +
+    `我們已收到您的課程預約需求，資訊如下:\n` +
+    `--------------------------------\n` +
+    `課程項目:${p.course}\n` +
+    `預約日期:${p.classDate}\n` +
+    `預約場次:${p.session}\n` +
+    `報名人數:${p.peopleCount} 位\n` +
+    `應付總金額:NT$ ${p.totalPrice.toLocaleString()}\n` +
+    `--------------------------------\n\n` +
+    `【匯款資訊】\n` +
+    `銀行代碼:中國信託 (822)\n` +
+    `匯款帳號:2225 4068 5268\n` +
+    `戶名:王邦珍\n\n` +
+    `※ 請於 48 小時內完成匯款，完成後請回傳「帳號末五碼」至 LINE 官方帳號以便對帳。\n` +
+    `我們核對完成後將會為您保留名額，期待在工作室見到您!\n\n` +
+    `陶錫工藝 Taoxi Craft 敬上`;
+  
+  MailApp.sendEmail({
+    to: p.email,
+    subject: subject,
+    body: body,
+    name: SENDER_NAME
+  });
+}
+
+function sendInitialFlex(p) {
+  const flex = {
+    "type": "bubble",
+    "body": {
+      "type": "box",
+      "layout": "vertical",
+      "spacing": "md",
+      "contents": [
+        {
+          "type": "text",
+          "text": "預約申請已收到",
+          "weight": "bold",
+          "size": "lg"
+        },
+        {
+          "type": "separator"
+        },
+        {
+          "type": "text",
+          "text": `課程:${p.course}\n日期:${p.classDate}\n場次:${p.session}\n金額:NT$ ${p.totalPrice.toLocaleString()}`,
+          "wrap": true,
+          "size": "sm"
+        },
+        {
+          "type": "text",
+          "text": "請於 48 小時內完成匯款並回報末五碼。",
+          "color": "#ff0000",
+          "size": "xs",
+          "weight": "bold",
+          "wrap": true
+        }
+      ]
+    },
+    "footer": {
+      "type": "box",
+      "layout": "vertical",
+      "contents": [
+        {
+          "type": "button",
+          "action": {
+            "type": "message",
+            "label": "回報匯款末五碼",
+            "text": "我的匯款末五碼是:"
+          },
+          "style": "primary",
+          "color": "#8c7851"
+        }
+      ]
+    }
+  };
+  
+  fetchLineApi('push', {
+    "to": p.lineUid,
+    "messages": [{
+      "type": "flex",
+      "altText": "預約申請已收到",
+      "contents": flex
+    }]
+  });
+}
+
+function sendApprovalNotificationFromSheet() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  const row = sheet.getActiveCell().getRow();
+  
+  if (row <= 1) {
+    Browser.msgBox("請選擇要發送通知的預約紀錄列");
+    return;
+  }
+  
+  const data = sheet.getRange(row, 1, 1, 10).getValues()[0];
+  const p = {
+    realName: data[6],
+    classDate: data[1],
+    session: data[2],
+    course: data[3],
+    peopleCount: data[4],
+    totalPrice: data[5],
+    email: data[8],
+    lineUid: data[9]
+  };
+  
+  if (!p.lineUid) {
+    Browser.msgBox("錯誤", "找不到 LINE UID", Browser.Buttons.OK);
+    return;
+  }
+  
+  const res = Browser.msgBox("確認發送", `是否發送「預約成功」通知給 ${p.realName}?`, Browser.Buttons.YES_NO);
+  
+  if (res === "yes") {
+    sendApprovalFlex(p);
+    sendApprovalEmail(p);
+    Browser.msgBox("發送成功!");
+  }
+}
+
+function sendApprovalFlex(p) {
+  const flex = {
+    "type": "bubble",
+    "hero": {
+      "type": "image",
+      "url": HEADER_IMAGE_URL,
+      "size": "full",
+      "aspectRatio": "20:9",
+      "aspectMode": "cover"
+    },
+    "body": {
+      "type": "box",
+      "layout": "vertical",
+      "spacing": "md",
+      "contents": [
+        {
+          "type": "text",
+          "text": "✅ 預約成功確認",
+          "weight": "bold",
+          "size": "xl",
+          "color": "#8c7851"
+        },
+        {
+          "type": "separator",
+          "margin": "md"
+        },
+        {
+          "type": "text",
+          "text": `${p.realName} 您好，您的課程預約已確認!`,
+          "wrap": true,
+          "margin": "md"
+        },
+        {
+          "type": "box",
+          "layout": "vertical",
+          "margin": "lg",
+          "spacing": "sm",
+          "contents": [
+            {
+              "type": "box",
+              "layout": "baseline",
+              "spacing": "sm",
+              "contents": [
+                { "type": "text", "text": "課程", "color": "#aaaaaa", "size": "sm", "flex": 2 },
+                { "type": "text", "text": p.course, "wrap": true, "color": "#666666", "size": "sm", "flex": 5 }
+              ]
+            },
+            {
+              "type": "box",
+              "layout": "baseline",
+              "spacing": "sm",
+              "contents": [
+                { "type": "text", "text": "日期", "color": "#aaaaaa", "size": "sm", "flex": 2 },
+                { "type": "text", "text": p.classDate.toString(), "wrap": true, "color": "#666666", "size": "sm", "flex": 5 }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "期待在工作室見到您!",
+          "color": "#8c7851",
+          "size": "sm",
+          "margin": "lg",
+          "weight": "bold"
+        }
+      ]
+    }
+  };
+  
+  fetchLineApi('push', {
+    "to": p.lineUid,
+    "messages": [{
+      "type": "flex",
+      "altText": "預約成功確認",
+      "contents": flex
+    }]
+  });
+}
+
+function sendApprovalEmail(p) {
+  const subject = `【陶錫工藝】預約成功通知 - ${p.course}`;
+  const body = `${p.realName} 您好,\n\n` +
+    `您的課程預約已通過審核並確認!\n\n` +
+    `課程項目: ${p.course}\n` +
+    `預約日期: ${p.classDate}\n` +
+    `預約場次: ${p.session}\n` +
+    `報名人數: ${p.peopleCount} 位\n\n` +
+    `期待在工作室見到您!\n\n` +
+    `陶錫工藝 Taoxi Craft 敬上`;
+  
+  MailApp.sendEmail({
+    to: p.email,
+    subject: subject,
+    body: body,
+    name: SENDER_NAME
+  });
+}
+
+function fetchLineApi(endpoint, payload) {
+  const options = {
+    'method': 'post',
+    'headers': {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + CHANNEL_ACCESS_TOKEN
+    },
+    'payload': JSON.stringify(payload),
+    'muteHttpExceptions': true
+  };
+  
+  const response = UrlFetchApp.fetch(`https://api.line.me/v2/bot/message/${endpoint}`, options);
+  Logger.log('LINE API 回應: ' + response.getContentText());
+  return response;
+}
