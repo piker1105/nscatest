@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>陶錫工藝 TAOXI CRAFT</title>
+    
+    <!-- LIFF SDK -->
+    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        html, body { overflow-x: hidden; background-color: #f8f6f2; }
+        body { position: relative; top: -55px; margin-bottom: -55px; font-family: 'Noto Sans TC', sans-serif; color: #433d35; }
+        .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(220, 210, 190, 0.3); border-radius: 16px; }
+        .btn-primary { background-color: #8c7851; transition: all 0.3s ease; }
+        .course-btn { cursor: pointer; transition: all 0.2s ease; border: 1.5px solid transparent; }
+        .course-btn.active { border-color: #8c7851; background-color: #fffaf0; }
+        .course-img { width: 80px; height: 60px; object-fit: cover; border-radius: 8px; }
+        #uidStatus { position: fixed; top: 0; left: 0; right: 0; padding: 10px; text-align: center; font-size: 13px; font-weight: bold; z-index: 999999; transition: all 0.3s ease; }
+        #uidStatus.loading { background: linear-gradient(90deg, #FF9800, #FFA726); color: white; }
+        #uidStatus.success { background: linear-gradient(90deg, #4CAF50, #66BB6A); color: white; }
+        #uidStatus.error { background: linear-gradient(90deg, #F44336, #E57373); color: white; }
+        #uidStatus.hidden { transform: translateY(-100%); opacity: 0; }
+    </style>
+</head>
+<body class="pb-12">
+    
+    <div id="uidStatus" class="loading">正在連線...</div>
+    
+    <header class="p-8 text-center pt-24">
+        <h1 class="text-2xl font-bold tracking-[0.2em] text-[#8c7851]">TAOXI CRAFT</h1>
+        <p class="text-[10px] text-stone-400 uppercase tracking-widest mt-1">陶錫工藝預約系統</p>
+    </header>
+
+    <main class="max-w-md mx-auto px-5">
+        <section id="step1">
+            <div class="flex justify-between items-end mb-4">
+                <h2 class="text-sm font-bold flex items-center tracking-wider text-[#8c7851]">
+                    <span class="bg-[#8c7851] text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px] mr-2">1</span>
+                    選擇預約課程
+                </h2>
+                <span class="text-[10px] text-stone-400">最少需 2 人預約</span>
+            </div>
+            
+            <div class="grid grid-cols-1 gap-3">
+                <div onclick="selectCourse(this, '花草拓印陶盤', 1180)" class="course-btn glass-card p-3 flex items-center gap-4">
+                    <img src="https://static.wixstatic.com/media/b30cc0_8c25de0a3f1d467180ab0e1284249efb~mv2.png" alt="花草拓印陶盤" class="course-img">
+                    <div class="flex-1"><p class="font-bold text-sm">花草拓印陶盤</p><p class="text-[#8c7851] font-bold text-xs mt-1">$1,180</p></div>
+                </div>
+                <div onclick="selectCourse(this, '個性化寵物碗', 1580)" class="course-btn glass-card p-3 flex items-center gap-4">
+                    <img src="https://static.wixstatic.com/media/b30cc0_5b7e103acff44b7c95c2174f0882f4e4~mv2.png" alt="個性化寵物碗" class="course-img">
+                    <div class="flex-1"><p class="font-bold text-sm">個性化寵物碗</p><p class="text-[#8c7851] font-bold text-xs mt-1">$1,580</p></div>
+                </div>
+                <div onclick="selectCourse(this, '阿美陶偶花器', 1380)" class="course-btn glass-card p-3 flex items-center gap-4">
+                    <img src="https://static.wixstatic.com/media/b30cc0_88b9ffa77c6b41cabe66bec159dcdae5~mv2.jpg" alt="阿美陶偶花器" class="course-img">
+                    <div class="flex-1"><p class="font-bold text-sm">阿美陶偶花器</p><p class="text-[#8c7851] font-bold text-xs mt-1">$1,380</p></div>
+                </div>
+                <div onclick="selectCourse(this, '錫光皿體驗', 1380)" class="course-btn glass-card p-3 flex items-center gap-4">
+                    <img src="https://via.placeholder.com/80x60/8c7851/ffffff?text=錫光皿" alt="錫光皿體驗" class="course-img">
+                    <div class="flex-1"><p class="font-bold text-sm">錫光皿體驗</p><p class="text-[#8c7851] font-bold text-xs mt-1">$1,380</p></div>
+                </div>
+                <div onclick="selectCourse(this, '錫銀叉體驗', 1680)" class="course-btn glass-card p-3 flex items-center gap-4">
+                    <img src="https://via.placeholder.com/80x60/8c7851/ffffff?text=錫銀叉" alt="錫銀叉體驗" class="course-img">
+                    <div class="flex-1"><p class="font-bold text-sm">錫銀叉體驗</p><p class="text-[#8c7851] font-bold text-xs mt-1">$1,680</p></div>
+                </div>
+                <div onclick="selectCourse(this, '小錫石金屬體驗', 880)" class="course-btn glass-card p-3 flex items-center gap-4">
+                    <img src="https://via.placeholder.com/80x60/8c7851/ffffff?text=小錫石" alt="小錫石金屬體驗" class="course-img">
+                    <div class="flex-1"><p class="font-bold text-sm">小錫石金屬體驗</p><p class="text-[#8c7851] font-bold text-xs mt-1">$880</p></div>
+                </div>
+                <div onclick="selectCourse(this, '錫銀咖啡勺', 1680)" class="course-btn glass-card p-3 flex items-center gap-4">
+                    <img src="https://via.placeholder.com/80x60/8c7851/ffffff?text=咖啡勺" alt="錫銀咖啡勺" class="course-img">
+                    <div class="flex-1"><p class="font-bold text-sm">錫銀咖啡勺</p><p class="text-[#8c7851] font-bold text-xs mt-1">$1,680</p></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="step2" class="hidden mt-6">
+            <div class="glass-card p-6 mb-4">
+                <h3 class="text-sm font-bold mb-3 text-[#8c7851]">已選擇課程</h3>
+                <p id="displaySelectedCourse" class="font-bold text-lg"></p>
+                <p id="displayUnitPrice" class="text-[#8c7851] text-sm mt-1"></p>
+            </div>
+            <div class="glass-card p-6">
+                <h2 class="text-sm font-bold flex items-center tracking-wider text-[#8c7851] mb-4">
+                    <span class="bg-[#8c7851] text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px] mr-2">2</span>
+                    填寫預約資料
+                </h2>
+                <div class="space-y-4">
+                    <div><label class="block text-xs text-gray-600 mb-2">預約人姓名 *</label><input type="text" id="userName" placeholder="請輸入姓名" class="w-full px-4 py-3 border border-gray-200 rounded-lg"></div>
+                    <div><label class="block text-xs text-gray-600 mb-2">聯絡電話 *</label><input type="tel" id="userPhone" placeholder="0912-345-678" class="w-full px-4 py-3 border border-gray-200 rounded-lg"></div>
+                    <div><label class="block text-xs text-gray-600 mb-2">Email *</label><input type="email" id="userEmail" placeholder="example@email.com" class="w-full px-4 py-3 border border-gray-200 rounded-lg"></div>
+                    <div><label class="block text-xs text-gray-600 mb-2">上課日期 *</label><input type="date" id="classDate" class="w-full px-4 py-3 border border-gray-200 rounded-lg"></div>
+                    <div><label class="block text-xs text-gray-600 mb-2">場次 *</label><select id="bookingSession" class="w-full px-4 py-3 border border-gray-200 rounded-lg"><option value="">請選擇場次</option><option value="上午場 10:00-12:00">上午場 10:00-12:00</option><option value="下午場 14:00-16:00">下午場 14:00-16:00</option><option value="晚上場 19:00-21:00">晚上場 19:00-21:00</option></select></div>
+                    <div><label class="block text-xs text-gray-600 mb-2">人數（最少 2 位）*</label><input type="number" id="userCount" min="2" value="2" class="w-full px-4 py-3 border border-gray-200 rounded-lg"></div>
+                    <button onclick="submitBooking()" id="submitBtn" class="btn-primary w-full text-white py-4 rounded-lg font-bold mt-6">確認送出預約</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="success" class="hidden">
+            <div class="glass-card p-8 text-center">
+                <div class="text-6xl mb-4">✅</div>
+                <h2 class="text-2xl font-bold text-[#8c7851] mb-4">預約成功!</h2>
+                <p class="text-gray-600 mb-6">我們已收到您的預約申請</p>
+                <div class="bg-gray-50 rounded-lg p-6 mb-6 text-left">
+                    <div class="space-y-3">
+                        <div class="flex justify-between"><span class="text-gray-600">預約日期:</span><span id="resDate" class="font-bold"></span></div>
+                        <div class="flex justify-between"><span class="text-gray-600">課程項目:</span><span id="resCourse" class="font-bold"></span></div>
+                        <div class="flex justify-between"><span class="text-gray-600">報名人數:</span><span id="resCount" class="font-bold"></span></div>
+                        <div class="flex justify-between border-t pt-3"><span class="text-gray-600">應付金額:</span><span id="resAmount" class="font-bold text-xl text-[#8c7851]"></span></div>
+                    </div>
+                </div>
+                <div class="bg-amber-50 border-2 border-amber-200 rounded-lg p-4 mb-6"><p class="font-bold text-amber-800 mb-2">📧 請查收電子郵件</p><p class="text-sm text-amber-700">我們已將預約確認信和匯款資訊寄至您的信箱</p></div>
+                <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4"><p class="font-bold text-red-800 mb-2">⏰ 請於 48 小時內完成匯款</p><p class="text-sm text-red-700">完成匯款後請回傳「帳號末五碼」至 LINE 官方帳號</p></div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // ========================================
+        // 🔧 設定：Google Apps Script API URL
+        // ========================================
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzcZJeqrToAVOwo9785lXjpBagsiqg6fq6Uoab2BApwyPgZ8AZZ5kBglDdLD42vZEja/exec';
+        const LIFF_ID = '2009015302-1L2Zkt3m';
+
+        var globalUid = null;
+        var globalDisplayName = '';
+        var uCourse = "";
+        var uUnitPrice = 0;
+
+        function updateStatus(msg, type, autoHide) {
+            var s = document.getElementById('uidStatus');
+            if (s) {
+                s.className = type;
+                s.innerHTML = msg;
+                if (autoHide) setTimeout(function() { s.className = 'hidden'; }, 2000);
+            }
+        }
+
+        function initializeLiff() {
+            console.log('開始初始化 LIFF...');
+            updateStatus('正在初始化...', 'loading', false);
+            
+            liff.init({ liffId: LIFF_ID })
+                .then(function() {
+                    console.log('✅ LIFF 初始化成功');
+                    
+                    if (liff.isLoggedIn()) {
+                        console.log('已登入，取得 Profile');
+                        return liff.getProfile();
+                    } else {
+                        console.log('未登入，導向登入');
+                        liff.login();
+                        return null;
+                    }
+                })
+                .then(function(profile) {
+                    if (profile) {
+                        globalUid = profile.userId;
+                        globalDisplayName = profile.displayName || '用戶';
+                        
+                        console.log('✅ UID:', globalUid);
+                        console.log('✅ 姓名:', globalDisplayName);
+                        
+                        sessionStorage.setItem('savedUid', globalUid);
+                        sessionStorage.setItem('savedName', globalDisplayName);
+                        
+                        updateStatus('✅ 歡迎 ' + globalDisplayName, 'success', true);
+                    }
+                })
+                .catch(function(err) {
+                    console.error('❌ LIFF 錯誤:', err);
+                    updateStatus('❌ 連線失敗: ' + err.message, 'error', false);
+                });
+        }
+
+        function selectCourse(el, name, price) {
+            uCourse = name;
+            uUnitPrice = price;
+            document.getElementById('displaySelectedCourse').innerText = name;
+            document.getElementById('displayUnitPrice').innerText = "$" + price.toLocaleString();
+            var btns = document.querySelectorAll('.course-btn');
+            for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
+            el.classList.add('active');
+            document.getElementById('step2').classList.remove('hidden');
+            document.getElementById('step2').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function calculateTotal() {
+            return uUnitPrice * (parseInt(document.getElementById('userCount').value) || 0);
+        }
+
+        function submitBooking() {
+            var btn = document.getElementById('submitBtn');
+            var uid = globalUid || sessionStorage.getItem('savedUid');
+            
+            if (!uid) {
+                alert('錯誤：無法取得 LINE ID\n請從 LINE 官方帳號進入');
+                return;
+            }
+            
+            var data = {
+                lineUid: uid,
+                uid: uid,
+                classDate: document.getElementById('classDate').value,
+                session: document.getElementById('bookingSession').value,
+                course: uCourse,
+                peopleCount: document.getElementById('userCount').value,
+                totalPrice: calculateTotal(),
+                realName: document.getElementById('userName').value,
+                phone: document.getElementById('userPhone').value,
+                email: document.getElementById('userEmail').value
+            };
+
+            console.log('提交資料:', data);
+
+            if (!data.realName || !data.classDate || !data.phone || !data.course || !data.email) {
+                alert("請填寫所有必填欄位");
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = "提交中...";
+            updateStatus('提交中...', 'loading', false);
+
+            // 🔧 使用 fetch 提交到 Apps Script
+            fetch(APPS_SCRIPT_URL + '?action=processForm', {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(function() {
+                console.log('✅ 提交成功');
+                updateStatus('✅ 預約成功', 'success', true);
+                showSuccess(data);
+            })
+            .catch(function(err) {
+                console.error('❌ 提交失敗:', err);
+                updateStatus('❌ 連線失敗', 'error', false);
+                alert("連線失敗，請稍後再試");
+                btn.disabled = false;
+                btn.innerText = "確認送出預約";
+            });
+        }
+
+        function showSuccess(data) {
+            document.getElementById('step1').classList.add('hidden');
+            document.getElementById('step2').classList.add('hidden');
+            document.getElementById('success').classList.remove('hidden');
+            document.getElementById('resDate').innerText = data.classDate;
+            document.getElementById('resCourse').innerText = data.course;
+            document.getElementById('resCount').innerText = data.peopleCount + " 位";
+            document.getElementById('resAmount').innerText = "NT$ " + data.totalPrice.toLocaleString();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        window.addEventListener('load', function() {
+            console.log('📱 頁面已載入');
+            
+            if (typeof liff === 'undefined') {
+                console.error('❌ LIFF SDK 未載入');
+                updateStatus('❌ 系統錯誤', 'error', false);
+            } else {
+                console.log('✅ LIFF SDK 已載入');
+                initializeLiff();
+            }
+        });
+    </script>
+</body>
+</html>
