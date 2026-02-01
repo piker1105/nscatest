@@ -123,8 +123,8 @@
         // ========================================
         // 🔧 設定：Google Apps Script API URL
         // ========================================
-        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzcZJeqrToAVOwo9785lXjpBagsiqg6fq6Uoab2BApwyPgZ8AZZ5kBglDdLD42vZEja/exec';
-        const LIFF_ID = '2009015302-1L2Zkt3m';
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxDSFxjK0pFkOokXB_ov0eiuw_GyjM5e-o04iRr6CJD7SeJdYVg4BQQp_4yjlJM-5hD/exec';
+        const LIFF_ID = '2009015302-tvNEIClG';
 
         var globalUid = null;
         var globalDisplayName = '';
