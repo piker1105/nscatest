@@ -102,14 +102,14 @@
                     填寫預約資料
                 </h2>
                 <div class="space-y-4">
-                    <div><label class="block text-xs text-gray-600 mb-2">預約人姓名 *</label><input type="text" id="userName" placeholder="請輸入姓名" class="w-full px-4 py-3 border border-gray-200 rounded-lg"></div>
-                    <div><label class="block text-xs text-gray-600 mb-2">聯絡電話 *</label><input type="tel" id="userPhone" placeholder="0912-345-678" class="w-full px-4 py-3 border border-gray-200 rounded-lg"></div>
-                    <div><label class="block text-xs text-gray-600 mb-2">Email *</label><input type="email" id="userEmail" placeholder="example@email.com" class="w-full px-4 py-3 border border-gray-200 rounded-lg"></div>
-                    <div><label class="block text-xs text-gray-600 mb-2">上課日期 *</label><input type="date" id="classDate" class="w-full px-4 py-3 border border-gray-200 rounded-lg"></div>
-                    <div><label class="block text-xs text-gray-600 mb-2">場次 *</label><select id="bookingSession" class="w-full px-4 py-3 border border-gray-200 rounded-lg"><option value="">請選擇場次</option><option value="上午場 10:00-12:00">上午場 10:00-12:00</option><option value="下午場 14:00-16:00">下午場 14:00-16:00</option></select></div>
+                    <div><label class="block text-xs text-gray-600 mb-2">預約人姓名 *</label><input type="text" id="userName" placeholder="請輸入姓名" class="w-full px-4 py-3 border border-gray-200 rounded-lg" required oninput="toggleSubmitButton()"></div>
+                    <div><label class="block text-xs text-gray-600 mb-2">聯絡電話 *</label><input type="tel" id="userPhone" placeholder="0912-345-678" class="w-full px-4 py-3 border border-gray-200 rounded-lg" required oninput="toggleSubmitButton()"></div>
+                    <div><label class="block text-xs text-gray-600 mb-2">Email *</label><input type="email" id="userEmail" placeholder="example@email.com" class="w-full px-4 py-3 border border-gray-200 rounded-lg" required oninput="toggleSubmitButton()"></div>
+                    <div><label class="block text-xs text-gray-600 mb-2">上課日期 *</label><input type="date" id="classDate" class="w-full px-4 py-3 border border-gray-200 rounded-lg" required onchange="toggleSubmitButton()"></div>
+                    <div><label class="block text-xs text-gray-600 mb-2">場次 *</label><select id="bookingSession" class="w-full px-4 py-3 border border-gray-200 rounded-lg" required onchange="toggleSubmitButton()"><option value="">請選擇場次</option><option value="上午場 10:00-12:00">上午場 10:00-12:00</option><option value="下午場 14:00-16:00">下午場 14:00-16:00</option></select></div>
                     <div>
                         <label class="block text-xs text-gray-600 mb-2">人數（最少 <span id="minPeopleLabel">2</span> 位）*</label>
-                        <input type="number" id="userCount" min="2" value="2" class="w-full px-4 py-3 border border-gray-200 rounded-lg">
+                        <input type="number" id="userCount" min="2" value="2" class="w-full px-4 py-3 border border-gray-200 rounded-lg" required oninput="toggleSubmitButton()">
                     </div>
                     
                     <!-- 注意事項區塊 -->
@@ -245,7 +245,18 @@
         function toggleSubmitButton() {
             var checkbox = document.getElementById('agreeTerms');
             var submitBtn = document.getElementById('submitBtn');
-            submitBtn.disabled = !checkbox.checked;
+            
+            // 檢查所有必填欄位
+            var userName = document.getElementById('userName').value.trim();
+            var userPhone = document.getElementById('userPhone').value.trim();
+            var userEmail = document.getElementById('userEmail').value.trim();
+            var classDate = document.getElementById('classDate').value;
+            var bookingSession = document.getElementById('bookingSession').value;
+            var userCount = document.getElementById('userCount').value;
+            
+            // 所有欄位都填寫且勾選注意事項才啟用按鈕
+            var allFieldsFilled = userName && userPhone && userEmail && classDate && bookingSession && userCount;
+            submitBtn.disabled = !(checkbox.checked && allFieldsFilled);
         }
 
         function calculateTotal() {
@@ -261,11 +272,17 @@
                 return;
             }
             
+            // 檢查注意事項是否勾選
+            if (!document.getElementById('agreeTerms').checked) {
+                alert('注意\n請先勾選同意注意事項');
+                return;
+            }
+            
             var peopleCount = parseInt(document.getElementById('userCount').value);
             
             // 驗證人數是否符合最低要求
             if (peopleCount < uMinPeople) {
-                alert('此課程最少需 ' + uMinPeople + ' 人報名');
+                alert('注意\n此課程最少需 ' + uMinPeople + ' 人報名');
                 return;
             }
             
@@ -285,7 +302,7 @@
             console.log('提交資料:', data);
 
             if (!data.realName || !data.classDate || !data.phone || !data.course || !data.email || !data.session) {
-                alert("請填寫所有必填欄位");
+                alert("注意\n請填寫所有必填欄位");
                 return;
             }
 
@@ -308,7 +325,7 @@
             .catch(function(err) {
                 console.error('❌ 提交失敗:', err);
                 updateStatus('❌ 連線失敗', 'error', false);
-                alert("連線失敗，請稍後再試");
+                alert("注意\n連線失敗，請稍後再試");
                 btn.disabled = false;
                 btn.innerText = "確認送出預約";
             });
