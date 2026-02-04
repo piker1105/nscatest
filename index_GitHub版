@@ -66,7 +66,7 @@
                     <img src="https://static.wixstatic.com/media/b30cc0_88b9ffa77c6b41cabe66bec159dcdae5~mv2.jpg" alt="阿美陶偶花器" class="course-img">
                     <div class="flex-1"><p class="font-bold text-sm">阿美陶偶花器</p><p class="text-[#8c7851] font-bold text-xs mt-1">$1,380</p></div>
                 </div>
-                <div onclick="selectCourse(this, '錫光皿體驗', 1380, 2)" class="course-btn glass-card p-3 flex items-center gap-4">
+                <div onclick="selectCourse(this, '錫光皿體驗', 1680, 2)" class="course-btn glass-card p-3 flex items-center gap-4">
                     <img src="https://static.wixstatic.com/media/b30cc0_874ccc51a5d74904b0db8497a22b4a9b~mv2.jpg" alt="錫光皿體驗" class="course-img">
                     <div class="flex-1"><p class="font-bold text-sm">錫光皿體驗</p><p class="text-[#8c7851] font-bold text-xs mt-1">$1,380</p></div>
                 </div>
