@@ -16,7 +16,7 @@
         body { position: relative; top: -55px; margin-bottom: -55px; font-family: 'Noto Sans TC', sans-serif; color: #433d35; }
         .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(220, 210, 190, 0.3); border-radius: 16px; }
         .btn-primary { background-color: #8c7851; transition: all 0.3s ease; }
-        .btn-primary:disabled { background-color: #ccc; cursor: not-allowed; }
+        .btn-primary:disabled { background-color: #ccc; cursor: pointer; }
         .course-btn { cursor: pointer; transition: all 0.2s ease; border: 1.5px solid transparent; }
         .course-btn.active { border-color: #8c7851; background-color: #fffaf0; }
         .course-img { width: 80px; height: 60px; object-fit: cover; border-radius: 8px; }
@@ -126,7 +126,7 @@
                         </div>
                     </div>
                     
-                    <button onclick="submitBooking()" id="submitBtn" disabled class="btn-primary w-full text-white py-4 rounded-lg font-bold mt-6">確認送出預約</button>
+                    <button onclick="handleSubmitClick()" id="submitBtn" disabled class="btn-primary w-full text-white py-4 rounded-lg font-bold mt-6">確認送出預約</button>
                 </div>
             </div>
         </section>
@@ -257,6 +257,45 @@
             // 所有欄位都填寫且勾選注意事項才啟用按鈕
             var allFieldsFilled = userName && userPhone && userEmail && classDate && bookingSession && userCount;
             submitBtn.disabled = !(checkbox.checked && allFieldsFilled);
+        }
+
+        function handleSubmitClick() {
+            var submitBtn = document.getElementById('submitBtn');
+            
+            // 如果按鈕是禁用狀態，顯示提醒
+            if (submitBtn.disabled) {
+                var missingFields = [];
+                
+                if (!document.getElementById('userName').value.trim()) {
+                    missingFields.push('• 預約人姓名');
+                }
+                if (!document.getElementById('userPhone').value.trim()) {
+                    missingFields.push('• 聯絡電話');
+                }
+                if (!document.getElementById('userEmail').value.trim()) {
+                    missingFields.push('• Email');
+                }
+                if (!document.getElementById('classDate').value) {
+                    missingFields.push('• 上課日期');
+                }
+                if (!document.getElementById('bookingSession').value) {
+                    missingFields.push('• 場次');
+                }
+                if (!document.getElementById('userCount').value) {
+                    missingFields.push('• 人數');
+                }
+                if (!document.getElementById('agreeTerms').checked) {
+                    missingFields.push('• 勾選同意注意事項');
+                }
+                
+                if (missingFields.length > 0) {
+                    alert('注意\n請完成以下欄位：\n\n' + missingFields.join('\n'));
+                }
+                return;
+            }
+            
+            // 如果按鈕是啟用狀態，執行送出
+            submitBooking();
         }
 
         function calculateTotal() {
