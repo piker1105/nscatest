@@ -61,6 +61,7 @@
         const App = () => {
             const [meta, setMeta] = useState({
                 company: 'yunNiang',
+                department: '運釀',
                 applicant: '',
                 date: new Date().toISOString().split('T')[0],
                 paymentMethod: 'transfer'
@@ -69,7 +70,6 @@
             const initialItem = {
                 id: Date.now(),
                 date: new Date().toISOString().split('T')[0],
-                dept: '運釀',
                 category: '',
                 client: '',
                 projectId: '',
@@ -78,19 +78,35 @@
                 amount: ''
             };
 
+            // 部門選項對應表
+            const departmentOptions = {
+                kaiYao: ['專案部', '管理部', '財務部', '企劃部', '設計部'],
+                yunNiang: ['運釀']
+            };
+
             const [items, setItems] = useState([initialItem]);
 
             useEffect(() => {
                 const savedName = localStorage.getItem('applicant_name');
                 const savedCompany = localStorage.getItem('company_name');
+                const savedDepartment = localStorage.getItem('department_name');
                 if (savedName) setMeta(prev => ({ ...prev, applicant: savedName }));
                 if (savedCompany) setMeta(prev => ({ ...prev, company: savedCompany }));
+                if (savedDepartment) setMeta(prev => ({ ...prev, department: savedDepartment }));
             }, []);
 
             const handleMetaChange = (field, value) => {
-                setMeta(prev => ({ ...prev, [field]: value }));
-                if (field === 'applicant') localStorage.setItem('applicant_name', value);
-                if (field === 'company') localStorage.setItem('company_name', value);
+                if (field === 'company') {
+                    // 切換公司時自動更新部門為該公司的第一個選項
+                    const newDept = departmentOptions[value][0];
+                    setMeta(prev => ({ ...prev, company: value, department: newDept }));
+                    localStorage.setItem('company_name', value);
+                    localStorage.setItem('department_name', newDept);
+                } else {
+                    setMeta(prev => ({ ...prev, [field]: value }));
+                    if (field === 'applicant') localStorage.setItem('applicant_name', value);
+                    if (field === 'department') localStorage.setItem('department_name', value);
+                }
             };
 
             const handleItemChange = (id, field, value) => {
@@ -120,7 +136,7 @@
                 const rows = items.map((item, index) => [
                     index + 1,
                     item.date,
-                    item.dept,
+                    meta.department,
                     item.category,
                     item.client,
                     item.projectId,
@@ -174,6 +190,14 @@
                                         <select value={meta.company} onChange={(e) => handleMetaChange('company', e.target.value)} className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none">
                                             <option value="yunNiang">運釀股份有限公司</option>
                                             <option value="kaiYao">凱曜網路股份有限公司</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-500 font-bold mb-1 block">所屬部門</label>
+                                        <select value={meta.department} onChange={(e) => handleMetaChange('department', e.target.value)} className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none">
+                                            {departmentOptions[meta.company].map(dept => (
+                                                <option key={dept} value={dept}>{dept}</option>
+                                            ))}
                                         </select>
                                     </div>
                                     <div>
@@ -277,7 +301,7 @@
                                             <tr key={item.id} className="text-center align-top h-8">
                                                 <td className="border border-black p-1">{idx + 1}</td>
                                                 <td className="border border-black p-1">{item.date}</td>
-                                                <td className="border border-black p-1">{item.dept}</td>
+                                                <td className="border border-black p-1">{meta.department}</td>
                                                 <td className="border border-black p-1">{item.category}</td>
                                                 <td className="border border-black p-1">{item.client}</td>
                                                 <td className="border border-black p-1 break-all">{item.projectId}</td>
