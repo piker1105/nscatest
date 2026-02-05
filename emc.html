@@ -67,6 +67,9 @@
                 paymentMethod: 'transfer'
             });
 
+            const [isSubmitting, setIsSubmitting] = useState(false);
+            const [submitStatus, setSubmitStatus] = useState({ show: false, success: false, message: '' });
+
             const initialItem = {
                 id: Date.now(),
                 date: new Date().toISOString().split('T')[0],
@@ -83,6 +86,9 @@
                 kaiYao: ['專案部', '管理部', '財務部', '企劃部', '設計部'],
                 yunNiang: ['運釀']
             };
+
+            // Google Apps Script Web App URL (請替換成你的部署網址)
+            const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxm_rcenn5w6qgcm8R69Pqdz11dtLV7yR9anqaNHcag9Zl_hY6Xlc_eFqSq6-CvLV08/exec';
 
             const [items, setItems] = useState([initialItem]);
 
@@ -130,6 +136,63 @@
                 return meta.company === 'kaiYao' ? '凱曜網路股份有限公司' : '運釀股份有限公司';
             };
 
+            // 送出到 Google Sheets
+            const handleSubmitToGoogleSheets = async () => {
+                // 驗證必填欄位
+                if (!meta.applicant) {
+                    setSubmitStatus({ show: true, success: false, message: '請填寫請款人姓名！' });
+                    setTimeout(() => setSubmitStatus({ show: false, success: false, message: '' }), 3000);
+                    return;
+                }
+
+                if (items.some(item => !item.amount || !item.date)) {
+                    setSubmitStatus({ show: true, success: false, message: '請確保所有項目都有填寫日期和金額！' });
+                    setTimeout(() => setSubmitStatus({ show: false, success: false, message: '' }), 3000);
+                    return;
+                }
+
+                setIsSubmitting(true);
+
+                try {
+                    // 準備要送出的資料
+                    const dataToSubmit = items.map(item => ({
+                        公司: getCompanyName(),
+                        部門: meta.department,
+                        姓名: meta.applicant,
+                        申請日期: meta.date,
+                        付款方式: meta.paymentMethod === 'cash' ? '現金' : meta.paymentMethod === 'transfer' ? '轉帳' : '其他',
+                        付款日期: meta.date,
+                        單據日期: item.date,
+                        類別: item.category,
+                        客戶別: item.client,
+                        專案編號: item.projectId,
+                        專案名稱: item.projectName,
+                        內容備註: item.description,
+                        金額: item.amount
+                    }));
+
+                    const response = await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ data: dataToSubmit })
+                    });
+
+                    // 由於 no-cors 模式，我們無法讀取 response，但如果沒有錯誤就視為成功
+                    setSubmitStatus({ show: true, success: true, message: '資料已成功送出到 Google Sheets！' });
+                    setTimeout(() => setSubmitStatus({ show: false, success: false, message: '' }), 3000);
+
+                } catch (error) {
+                    console.error('送出錯誤:', error);
+                    setSubmitStatus({ show: true, success: false, message: '送出失敗，請稍後再試或檢查網址設定！' });
+                    setTimeout(() => setSubmitStatus({ show: false, success: false, message: '' }), 5000);
+                } finally {
+                    setIsSubmitting(false);
+                }
+            };
+
             // 下載 CSV 功能
             const handleDownloadCSV = () => {
                 const headers = ['編號', '日期', '部門', '類別', '客戶別', '專案編號', '專案名稱', '內容/備註', '金額'];
@@ -165,6 +228,11 @@
                     <div className="bg-white shadow-sm border-b p-4 print-hidden sticky top-0 z-10 flex flex-wrap justify-between items-center gap-4">
                         <div className="flex items-center gap-2">
                             <h1 className="text-xl font-bold text-blue-600">請款單產生系統</h1>
+                            {submitStatus.show && (
+                                <div className={`ml-4 px-4 py-2 rounded-lg text-sm font-medium ${submitStatus.success ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                    {submitStatus.message}
+                                </div>
+                            )}
                         </div>
                         <div className="flex gap-3">
                             <button onClick={addItem} className="px-4 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 border border-green-200 flex items-center gap-2 transition-colors">
@@ -176,6 +244,13 @@
                             <button onClick={handlePrint} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm flex items-center gap-2 transition-colors">
                                 <span>🖨️ 列印 / PDF</span>
                             </button>
+                            <button 
+                                onClick={handleSubmitToGoogleSheets} 
+                                disabled={isSubmitting}
+                                className={`px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 transition-colors ${isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'} text-white`}
+                            >
+                                <span>{isSubmitting ? '⏳ 送出中...' : '📤 送出資料'}</span>
+                            </button>
                         </div>
                     </div>
 
@@ -185,20 +260,22 @@
                             <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
                                 <h2 className="text-lg font-semibold mb-4 border-b pb-2">1. 基本資料</h2>
                                 <div className="grid gap-4">
-                                    <div>
-                                        <label className="text-xs text-gray-500 font-bold mb-1 block">所屬公司</label>
-                                        <select value={meta.company} onChange={(e) => handleMetaChange('company', e.target.value)} className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none">
-                                            <option value="yunNiang">運釀股份有限公司</option>
-                                            <option value="kaiYao">凱曜網路股份有限公司</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-gray-500 font-bold mb-1 block">所屬部門</label>
-                                        <select value={meta.department} onChange={(e) => handleMetaChange('department', e.target.value)} className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none">
-                                            {departmentOptions[meta.company].map(dept => (
-                                                <option key={dept} value={dept}>{dept}</option>
-                                            ))}
-                                        </select>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="text-xs text-gray-500 font-bold mb-1 block">所屬公司</label>
+                                            <select value={meta.company} onChange={(e) => handleMetaChange('company', e.target.value)} className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none">
+                                                <option value="yunNiang">運釀股份有限公司</option>
+                                                <option value="kaiYao">凱曜網路股份有限公司</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-gray-500 font-bold mb-1 block">所屬部門</label>
+                                            <select value={meta.department} onChange={(e) => handleMetaChange('department', e.target.value)} className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none">
+                                                {departmentOptions[meta.company].map(dept => (
+                                                    <option key={dept} value={dept}>{dept}</option>
+                                                ))}
+                                            </select>
+                                        </div>
                                     </div>
                                     <div>
                                         <label className="text-xs text-gray-500 font-bold mb-1 block">請款人姓名</label>
