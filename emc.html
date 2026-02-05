@@ -311,8 +311,9 @@
                                                 <input type="text" value={item.projectId} onChange={(e) => handleItemChange(item.id, 'projectId', e.target.value)} className="p-1.5 text-sm border rounded" placeholder="專案編號" />
                                                 <input type="text" value={item.client} onChange={(e) => handleItemChange(item.id, 'client', e.target.value)} className="p-1.5 text-sm border rounded" placeholder="客戶別" />
                                             </div>
-                                            <div className="mb-3">
-                                                <select value={item.category} onChange={(e) => handleItemChange(item.id, 'category', e.target.value)} className="w-full p-1.5 text-sm border rounded bg-white">
+                                            <div className="grid grid-cols-2 gap-3 mb-3">
+                                                <input type="text" value={item.projectName} onChange={(e) => handleItemChange(item.id, 'projectName', e.target.value)} className="p-1.5 text-sm border rounded" placeholder="專案名稱" />
+                                                <select value={item.category} onChange={(e) => handleItemChange(item.id, 'category', e.target.value)} className="p-1.5 text-sm border rounded bg-white">
                                                     <option value="">選擇類別...</option>
                                                     <option value="餐飲">餐飲</option>
                                                     <option value="交通">交通/運送</option>
@@ -368,7 +369,7 @@
                                             <th className="border border-black p-1 w-[70px]">類別</th>
                                             <th className="border border-black p-1 w-[70px]">客戶別</th>
                                             <th className="border border-black p-1 w-[90px]">專案編號</th>
-                                            <th className="border border-black p-1 w-[110px]">專案名稱</th>
+                                            <th className="border border-black p-1 w-[140px]">專案名稱</th>
                                             <th className="border border-black p-1">內容 / 備註</th>
                                             <th className="border border-black p-1 w-[80px]">金額</th>
                                         </tr>
