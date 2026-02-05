@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>凱曜股份有限公司 - 員工請款單產生器</title>
+    <title>員工請款單產生器</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- React & ReactDOM -->
@@ -60,6 +60,7 @@
 
         const App = () => {
             const [meta, setMeta] = useState({
+                company: 'yunNiang',
                 applicant: '',
                 date: new Date().toISOString().split('T')[0],
                 paymentMethod: 'transfer'
@@ -81,12 +82,15 @@
 
             useEffect(() => {
                 const savedName = localStorage.getItem('applicant_name');
+                const savedCompany = localStorage.getItem('company_name');
                 if (savedName) setMeta(prev => ({ ...prev, applicant: savedName }));
+                if (savedCompany) setMeta(prev => ({ ...prev, company: savedCompany }));
             }, []);
 
             const handleMetaChange = (field, value) => {
                 setMeta(prev => ({ ...prev, [field]: value }));
                 if (field === 'applicant') localStorage.setItem('applicant_name', value);
+                if (field === 'company') localStorage.setItem('company_name', value);
             };
 
             const handleItemChange = (id, field, value) => {
@@ -105,6 +109,10 @@
             const totalAmount = items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
 
             const handlePrint = () => window.print();
+
+            const getCompanyName = () => {
+                return meta.company === 'kaiYao' ? '凱曜網路股份有限公司' : '運釀股份有限公司';
+            };
 
             // 下載 CSV 功能
             const handleDownloadCSV = () => {
@@ -162,6 +170,13 @@
                                 <h2 className="text-lg font-semibold mb-4 border-b pb-2">1. 基本資料</h2>
                                 <div className="grid gap-4">
                                     <div>
+                                        <label className="text-xs text-gray-500 font-bold mb-1 block">所屬公司</label>
+                                        <select value={meta.company} onChange={(e) => handleMetaChange('company', e.target.value)} className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none">
+                                            <option value="yunNiang">運釀股份有限公司</option>
+                                            <option value="kaiYao">凱曜網路股份有限公司</option>
+                                        </select>
+                                    </div>
+                                    <div>
                                         <label className="text-xs text-gray-500 font-bold mb-1 block">請款人姓名</label>
                                         <input type="text" placeholder="請填寫姓名" value={meta.applicant} onChange={(e) => handleMetaChange('applicant', e.target.value)} className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" />
                                     </div>
@@ -193,7 +208,10 @@
                                             </div>
                                             <div className="grid grid-cols-2 gap-3 mb-3">
                                                 <input type="text" value={item.projectId} onChange={(e) => handleItemChange(item.id, 'projectId', e.target.value)} className="p-1.5 text-sm border rounded" placeholder="專案編號" />
-                                                <select value={item.category} onChange={(e) => handleItemChange(item.id, 'category', e.target.value)} className="p-1.5 text-sm border rounded bg-white">
+                                                <input type="text" value={item.client} onChange={(e) => handleItemChange(item.id, 'client', e.target.value)} className="p-1.5 text-sm border rounded" placeholder="客戶別" />
+                                            </div>
+                                            <div className="mb-3">
+                                                <select value={item.category} onChange={(e) => handleItemChange(item.id, 'category', e.target.value)} className="w-full p-1.5 text-sm border rounded bg-white">
                                                     <option value="">選擇類別...</option>
                                                     <option value="餐飲">餐飲</option>
                                                     <option value="交通">交通/運送</option>
@@ -218,7 +236,7 @@
                         <div className="w-full lg:w-2/3 flex justify-center bg-gray-200 lg:bg-transparent print-w-full print:bg-white print:block">
                             <div className="printable-area bg-white shadow-lg print:shadow-none w-full max-w-[297mm] min-h-[210mm] p-[10mm] print:p-0 text-black box-border">
                                 <div className="text-center mb-6">
-                                    <h1 className="text-2xl font-bold tracking-widest mb-1">運釀股份有限公司</h1>
+                                    <h1 className="text-2xl font-bold tracking-widest mb-1">{getCompanyName()}</h1>
                                     <h2 className="text-xl font-medium border-b-2 border-black inline-block pb-1 px-4">員工請款單 Payment Request</h2>
                                 </div>
 
