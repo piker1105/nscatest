@@ -68,7 +68,7 @@
                 </div>
                 <div onclick="selectCourse(this, '錫光皿體驗', 1680, 2)" class="course-btn glass-card p-3 flex items-center gap-4">
                     <img src="https://static.wixstatic.com/media/b30cc0_874ccc51a5d74904b0db8497a22b4a9b~mv2.jpg" alt="錫光皿體驗" class="course-img">
-                    <div class="flex-1"><p class="font-bold text-sm">錫光皿體驗</p><p class="text-[#8c7851] font-bold text-xs mt-1">$1,380</p></div>
+                    <div class="flex-1"><p class="font-bold text-sm">錫光皿體驗</p><p class="text-[#8c7851] font-bold text-xs mt-1">$1,680</p></div>
                 </div>
                 <div onclick="selectCourse(this, '錫銀叉體驗', 1680, 2)" class="course-btn glass-card p-3 flex items-center gap-4">
                     <img src="https://static.wixstatic.com/media/b30cc0_d9441e5cc2ec4d1ab3e6e42227461352~mv2.jpg" alt="錫銀叉體驗" class="course-img">
